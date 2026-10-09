@@ -1,0 +1,40 @@
+# Android & Gradle
+*.iml
+.gradle/
+/local.properties
+/.idea/
+.idea/
+.DS_Store
+/build
+build/
+*/build/
+smartcollege/.gradle/
+smartcollege/build/
+smartcollege/*/build/
+smartcollege/local.properties
+smartcollege/.idea/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Node & Web (Admin Dashboard)
+node_modules/
+admin-web/node_modules/
+admin-web/dist/
+dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+admin-web/.env.local
+admin-web/.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Temporary & OS
+*.tmp
+*.log
+Thumbs.db

@@ -1,0 +1,9 @@
+import base64
+import os
+
+def write_b64(path, b64_str):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(base64.b64decode(b64_str.encode('ascii')).decode('utf-8').strip() + '
+')
+    print('Wrote:', path)

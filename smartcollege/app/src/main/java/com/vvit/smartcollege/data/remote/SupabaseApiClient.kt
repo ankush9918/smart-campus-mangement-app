@@ -226,7 +226,9 @@ object SupabaseApiClient {
     }
 
     /**
-     * Post student attendance record to Supabase with duplicate protection and live percentage recalculation
+     * Post student attendance record to Supabase.
+     * Allows multiple lectures/sessions for the same subject on the same day.
+     * Each submission records a new lecture entry and recalculates overall student attendance percentage.
      */
     suspend fun postStudentAttendance(
         studentId: String,
@@ -244,61 +246,29 @@ object SupabaseApiClient {
             val canonicalSub = masterSub?.displayName ?: MasterSubjectRegistry.normalize(subject)
             val cleanDate = date.trim()
             val cleanId = studentId.trim()
-            val encodedRoll = java.net.URLEncoder.encode(cleanRoll, "UTF-8")
-            val encodedSub = java.net.URLEncoder.encode(canonicalSub, "UTF-8")
-            val encodedDate = java.net.URLEncoder.encode(cleanDate, "UTF-8")
+            val isoTimestamp = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US).apply {
+                timeZone = java.util.TimeZone.getTimeZone("UTC")
+            }.format(java.util.Date())
 
-            // 1. Duplicate protection: check if an attendance record already exists for this Student + Subject + Date
-            var isSaved = false
-            try {
-                var checkEndpoint = "/attendance_student?roll_number=eq.$encodedRoll&subject=eq.$encodedSub&date=eq.$encodedDate&select=id"
-                var existingRes = executeRequest(checkEndpoint)
-                if ((existingRes.isNullOrBlank() || existingRes.trim() == "[]") && masterSub != null) {
-                    val encodedShort = java.net.URLEncoder.encode(masterSub.name, "UTF-8")
-                    checkEndpoint = "/attendance_student?roll_number=eq.$encodedRoll&subject=eq.$encodedShort&date=eq.$encodedDate&select=id"
-                    existingRes = executeRequest(checkEndpoint)
-                }
-                if ((existingRes.isNullOrBlank() || existingRes.trim() == "[]") && cleanId.isNotBlank()) {
-                    val encodedId = java.net.URLEncoder.encode(cleanId, "UTF-8")
-                    checkEndpoint = "/attendance_student?student_id=eq.$encodedId&subject=eq.$encodedSub&date=eq.$encodedDate&select=id"
-                    existingRes = executeRequest(checkEndpoint)
-                }
-                if (!existingRes.isNullOrBlank() && existingRes.trim() != "[]") {
-                    val arr = JSONArray(existingRes)
-                    if (arr.length() > 0) {
-                        val existingId = arr.getJSONObject(0).optString("id")
-                        val patchJson = JSONObject().apply {
-                            put("status", status)
-                            put("marked_by", markedBy)
-                            put("student_name", studentName)
-                        }
-                        val patchRes = executeRequest("/attendance_student?id=eq.$existingId", "PATCH", patchJson.toString())
-                        isSaved = patchRes != null
-                    }
-                }
-            } catch (e: Exception) {
-                Log.d(TAG, "Duplicate check note: ${e.message}")
+            // Insert new attendance session record (allowing multiple classes/lectures per day)
+            val postJson = JSONObject().apply {
+                put("id", "att_s_${System.currentTimeMillis()}_${java.util.UUID.randomUUID().toString().take(6)}")
+                put("student_id", cleanId)
+                put("student_name", studentName)
+                put("roll_number", cleanRoll)
+                put("subject", canonicalSub)
+                put("date", cleanDate)
+                put("status", status)
+                put("marked_by", markedBy)
+                put("timestamp", isoTimestamp)
             }
+            val postRes = executeRequest("/attendance_student", "POST", postJson.toString())
+            val isSaved = postRes != null
 
-            // 2. If no existing record was found/updated, insert a new record
-            if (!isSaved) {
-                val postJson = JSONObject().apply {
-                    put("id", "att_s_${System.currentTimeMillis()}")
-                    put("student_id", cleanId)
-                    put("student_name", studentName)
-                    put("roll_number", cleanRoll)
-                    put("subject", canonicalSub)
-                    put("date", cleanDate)
-                    put("status", status)
-                    put("marked_by", markedBy)
-                }
-                val postRes = executeRequest("/attendance_student", "POST", postJson.toString())
-                isSaved = postRes != null
-            }
-
-            // 3. Automatically recalculate and sync student's overall attendance percentage in Supabase students table
+            // Recalculate and sync student's overall attendance percentage in Supabase students table
             if (isSaved) {
                 try {
+                    val encodedRoll = java.net.URLEncoder.encode(cleanRoll, "UTF-8")
                     var allRecordsRes = executeRequest("/attendance_student?roll_number=eq.$encodedRoll&select=status")
                     if ((allRecordsRes.isNullOrBlank() || allRecordsRes.trim() == "[]") && cleanId.isNotBlank()) {
                         val encodedId = java.net.URLEncoder.encode(cleanId, "UTF-8")
@@ -313,7 +283,7 @@ object SupabaseApiClient {
                                 presentCount++
                             }
                         }
-                        val newPercentage = if (total > 0) (presentCount * 100) / total else 0
+                        val newPercentage = if (total > 0) (presentCount * 100) / total else 100
                         val updateStudentJson = JSONObject().apply {
                             put("attendance_rate", newPercentage)
                         }

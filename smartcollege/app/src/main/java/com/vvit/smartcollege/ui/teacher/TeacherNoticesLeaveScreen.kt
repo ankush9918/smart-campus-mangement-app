@@ -54,15 +54,13 @@ fun TeacherNoticesLeaveScreen(
                         VVITTextField(
                             value = noticeTitle,
                             onValueChange = { noticeTitle = it },
-                            label = "Notice Title",
-                            placeholder = "e.g. Extra Lab Session for Batch B"
+                            label = "Notice Title"
                         )
 
                         VVITTextField(
                             value = noticeDescription,
                             onValueChange = { noticeDescription = it },
                             label = "Announcement Details",
-                            placeholder = "Type circular message...",
                             singleLine = false,
                             maxLines = 4
                         )

@@ -205,15 +205,13 @@ fun TeacherAssignmentsHubScreen(
                             VVITTextField(
                                 value = title,
                                 onValueChange = { title = it },
-                                label = "Assignment Title",
-                                placeholder = "e.g. Unit 3 Programming & Theory Assignment"
+                                label = "Assignment Title"
                             )
 
                             VVITTextField(
                                 value = instructions,
                                 onValueChange = { instructions = it },
                                 label = "Task Description / Instructions",
-                                placeholder = "Enter detailed instructions, submission guidelines, questions...",
                                 singleLine = false,
                                 maxLines = 4
                             )
@@ -318,7 +316,6 @@ fun TeacherAssignmentsHubScreen(
                                     value = maxMarks,
                                     onValueChange = { maxMarks = it },
                                     label = "Max Marks",
-                                    placeholder = "100",
                                     modifier = Modifier.weight(1f)
                                 )
 
@@ -326,7 +323,7 @@ fun TeacherAssignmentsHubScreen(
                                 Box(modifier = Modifier.weight(1f)) {
                                     Column {
                                         Text(
-                                            text = "LAST DATE / DEADLINE",
+                                            text = "Due Date",
                                             style = Typography.labelSmall.copy(color = TextSecondary, fontWeight = FontWeight.Bold)
                                         )
                                         Spacer(modifier = Modifier.height(4.dp))
@@ -367,7 +364,7 @@ fun TeacherAssignmentsHubScreen(
                     }
 
                     VVITPrimaryButton(
-                        text = "Upload / Publish Assignment",
+                        text = "Upload Assignment",
                         onClick = {
                             if (title.isBlank()) {
                                 return@VVITPrimaryButton

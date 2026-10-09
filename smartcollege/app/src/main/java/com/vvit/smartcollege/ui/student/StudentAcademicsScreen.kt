@@ -411,10 +411,10 @@ fun AssignmentItemCard(
                 )
             )
 
-            if (item.instructions.isNotBlank()) {
+            if (item.cleanInstructions.isNotBlank()) {
                 Spacer(modifier = Modifier.height(3.dp))
                 Text(
-                    text = item.instructions,
+                    text = item.cleanInstructions,
                     style = Typography.bodySmall.copy(
                         color = TextSecondary,
                         fontSize = 12.sp

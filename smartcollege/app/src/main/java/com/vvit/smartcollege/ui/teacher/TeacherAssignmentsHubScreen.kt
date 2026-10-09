@@ -398,8 +398,7 @@ fun TeacherAssignmentsHubScreen(
                             selectedFileBytes = null
                             selectedFileMimeType = "application/octet-stream"
                             activeTab = 1
-                        },
-                        containerColor = PrimaryNavy
+                        }
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -465,10 +464,10 @@ fun TeacherAssignmentsHubScreen(
                                         style = Typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                     )
 
-                                    if (asg.instructions.isNotBlank()) {
+                                    if (asg.cleanInstructions.isNotBlank()) {
                                         Spacer(modifier = Modifier.height(2.dp))
                                         Text(
-                                            text = asg.instructions,
+                                            text = asg.cleanInstructions,
                                             style = Typography.bodySmall.copy(color = TextSecondary, fontSize = 12.sp)
                                         )
                                     }

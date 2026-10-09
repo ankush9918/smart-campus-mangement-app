@@ -75,8 +75,7 @@ fun TeacherNoticesLeaveScreen(
                                     noticeTitle = ""
                                     noticeDescription = ""
                                 }
-                            },
-                            containerColor = PrimaryNavy
+                            }
                         )
                     }
                 }
@@ -109,7 +108,7 @@ fun TeacherNoticesLeaveScreen(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = notice.description,
+                            text = notice.displayDescription,
                             style = Typography.bodySmall.copy(color = TextSecondary)
                         )
                     }

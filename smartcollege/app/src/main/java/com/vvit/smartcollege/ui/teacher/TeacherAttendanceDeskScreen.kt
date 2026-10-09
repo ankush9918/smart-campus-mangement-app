@@ -268,8 +268,7 @@ fun TeacherAttendanceDeskScreen(
             // Submit Attendance Button
             VVITPrimaryButton(
                 text = "Submit Attendance",
-                onClick = { viewModel.submitAttendance() },
-                containerColor = PrimaryNavy
+                onClick = { viewModel.submitAttendance() }
             )
 
             Spacer(modifier = Modifier.height(16.dp))

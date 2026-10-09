@@ -34,7 +34,7 @@ fun VVITHeader(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(PrimaryNavy)
+            .background(TopBarBackground)
             .padding(horizontal = 16.dp, vertical = 14.dp)
     ) {
         Row(

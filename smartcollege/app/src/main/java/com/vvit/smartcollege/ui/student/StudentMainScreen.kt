@@ -1,4 +1,4 @@
-﻿package com.vvit.smartcollege.ui.student
+package com.vvit.smartcollege.ui.student
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -58,7 +58,6 @@ fun StudentMainScreen(
                 "attendance" -> StudentAttendanceScreen(viewModel = viewModel)
                 "timetable" -> StudentTimetableScreen(viewModel = viewModel)
                 "academics" -> StudentAcademicsScreen(viewModel = viewModel)
-                "results" -> StudentResultsScreen(viewModel = viewModel)
                 "notices_fees" -> StudentNoticesFeesScreen(viewModel = viewModel)
                 "profile" -> StudentProfileScreen(
                     viewModel = viewModel,

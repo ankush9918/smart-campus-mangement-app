@@ -98,7 +98,7 @@ fun TeacherDashboardScreen(
             ) {
                 Column {
                     Text(
-                        text = "Welcome back,",
+                        text = "Welcome,",
                         style = Typography.bodyMedium.copy(
                             fontWeight = FontWeight.Medium,
                             color = TextSecondary,
@@ -201,9 +201,14 @@ fun TeacherDashboardScreen(
                                         text = item.subjectName,
                                         style = Typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                     )
+                                    val subtext = when {
+                                        item.room.isBlank() || item.room.equals("LH-1", ignoreCase = true) || item.room.equals("LH1", ignoreCase = true) -> item.section
+                                        item.section.isNotBlank() -> "${item.room} • ${item.section}"
+                                        else -> item.room
+                                    }
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
-                                        text = "${item.room} • ${item.section}",
+                                        text = subtext,
                                         style = Typography.bodySmall.copy(color = TextSecondary, fontSize = 11.sp)
                                     )
                                 }
@@ -226,7 +231,7 @@ fun TeacherDashboardScreen(
                     QuickActionGridItem(
                         title = "Mark Attendance",
                         icon = Icons.Default.CheckCircle,
-                        iconBgColor = PrimaryNavy,
+                        iconBgColor = if (ThemeState.isDarkMode.value) Color(0xFF2563EB) else PrimaryNavyDark,
                         onClick = { onNavigateToSection("attendance") },
                         modifier = Modifier.weight(1f)
                     )
@@ -248,10 +253,10 @@ fun TeacherDashboardScreen(
 
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                     QuickActionGridItem(
-                        title = "Enter Marks",
-                        icon = Icons.Default.Grade,
+                        title = "Schedule",
+                        icon = Icons.Default.DateRange,
                         iconBgColor = SuccessGreen,
-                        onClick = { onNavigateToSection("performance") },
+                        onClick = { onNavigateToSection("schedule") },
                         modifier = Modifier.weight(1f)
                     )
                     QuickActionGridItem(
@@ -305,10 +310,10 @@ fun TeacherDashboardScreen(
                                 fontSize = 14.sp
                             )
                         )
-                        if (alert.description.isNotBlank()) {
+                        if (alert.displayDescription.isNotBlank()) {
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = alert.description,
+                                text = alert.displayDescription,
                                 style = Typography.bodySmall.copy(color = TextSecondary, fontSize = 11.sp),
                                 maxLines = 2
                             )

@@ -292,13 +292,28 @@ class StudentDao(private val db: SQLiteDatabase) {
         val cursor = db.query(DbConstants.TABLE_NOTICES, null, null, null, null, null, "rowid DESC")
         cursor.use {
             while (it.moveToNext()) {
+                val rawDesc = it.getString(it.getColumnIndexOrThrow("description"))
+                var cleanDesc = rawDesc
+                if (rawDesc.trim().startsWith("{")) {
+                    try {
+                        val meta = org.json.JSONObject(rawDesc)
+                        if (meta.has("subject")) {
+                            val sub = meta.optString("subject", "").trim()
+                            if (sub.isNotBlank()) cleanDesc = sub
+                        } else if (meta.has("instructions")) {
+                            val inst = meta.optString("instructions", "").trim()
+                            if (inst.isNotBlank()) cleanDesc = inst
+                        }
+                    } catch (_: Exception) {}
+                }
+
                 list.add(
                     NoticeItem(
                         id = it.getString(it.getColumnIndexOrThrow("id")),
                         title = it.getString(it.getColumnIndexOrThrow("title")),
                         category = it.getString(it.getColumnIndexOrThrow("category")),
                         timeAgo = it.getString(it.getColumnIndexOrThrow("timeAgo")),
-                        description = it.getString(it.getColumnIndexOrThrow("description")),
+                        description = cleanDesc,
                         isUrgent = it.getInt(it.getColumnIndexOrThrow("isUrgent")) == 1,
                         date = it.getString(it.getColumnIndexOrThrow("date"))
                     )

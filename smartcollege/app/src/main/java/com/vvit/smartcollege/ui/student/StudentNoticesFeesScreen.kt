@@ -67,7 +67,7 @@ fun StudentNoticesFeesScreen(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = item.description,
+                            text = item.displayDescription,
                             style = Typography.bodySmall.copy(color = TextSecondary)
                         )
                     }

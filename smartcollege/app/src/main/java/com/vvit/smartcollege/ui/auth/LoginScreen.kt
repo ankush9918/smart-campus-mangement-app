@@ -161,7 +161,7 @@ fun LoginScreen(
                                 modifier = Modifier
                                     .weight(1f)
                                     .clip(RoundedCornerShape(8.dp))
-                                    .background(if (isSelected) PrimaryNavy else Color.Transparent)
+                                    .background(if (isSelected) (if (ThemeState.isDarkMode.value) Color(0xFF2563EB) else PrimaryNavyDark) else Color.Transparent)
                                     .clickable {
                                         when (index) {
                                             0 -> viewModel.selectRole(UserRole.STUDENT)
@@ -178,7 +178,7 @@ fun LoginScreen(
                                     Icon(
                                         imageVector = roleIcon,
                                         contentDescription = null,
-                                        tint = if (isSelected) CardWhite else TextSecondary,
+                                        tint = if (isSelected) Color.White else TextSecondary,
                                         modifier = Modifier.size(16.dp)
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
@@ -186,7 +186,7 @@ fun LoginScreen(
                                         text = title,
                                         style = Typography.labelMedium.copy(
                                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                            color = if (isSelected) CardWhite else TextSecondary,
+                                            color = if (isSelected) Color.White else TextSecondary,
                                             fontSize = 13.sp
                                         ),
                                         textAlign = TextAlign.Center
@@ -254,8 +254,7 @@ fun LoginScreen(
                     VVITPrimaryButton(
                         text = if (isLoading) "Signing in..." else "Sign In as ${roleTabs[selectedRoleIndex]}",
                         onClick = { viewModel.login(onLoginSuccess) },
-                        enabled = !isLoading,
-                        containerColor = PrimaryNavy
+                        enabled = !isLoading
                     )
                 }
             }

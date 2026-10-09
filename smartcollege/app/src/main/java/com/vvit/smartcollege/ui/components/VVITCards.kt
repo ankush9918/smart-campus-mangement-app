@@ -80,7 +80,9 @@ fun StatCard(
                     color = TextPrimary,
                     fontWeight = FontWeight.Bold,
                     fontSize = 20.sp
-                )
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
 
             if (subtitle != null) {
@@ -91,7 +93,9 @@ fun StatCard(
                         color = highlightColor,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 10.sp
-                    )
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }
@@ -103,7 +107,7 @@ fun QuickActionGridItem(
     title: String,
     icon: ImageVector,
     iconBgColor: Color,
-    iconTint: Color = CardWhite,
+    iconTint: Color = Color.White,
     badgeCount: Int? = null,
     onClick: () -> Unit,
     modifier: Modifier = Modifier

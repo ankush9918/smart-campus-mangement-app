@@ -42,7 +42,21 @@ data class StudentAssignment(
     val professorName: String = "",
     val fileName: String? = null,
     val fileUri: String? = null
-)
+) {
+    val cleanInstructions: String
+        get() {
+            val trimmed = instructions.trim()
+            if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+                try {
+                    val json = org.json.JSONObject(trimmed)
+                    if (json.has("instructions")) {
+                        return json.optString("instructions", "")
+                    }
+                } catch (_: Exception) {}
+            }
+            return instructions
+        }
+}
 
 data class StudentStudyMaterial(
     val id: String,
@@ -98,7 +112,26 @@ data class NoticeItem(
     val description: String,
     val isUrgent: Boolean = false,
     val date: String
-)
+) {
+    val displayDescription: String
+        get() {
+            val trimmed = description.trim()
+            if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+                try {
+                    val json = org.json.JSONObject(trimmed)
+                    if (json.has("subject")) {
+                        val sub = json.optString("subject", "").trim()
+                        if (sub.isNotBlank()) return sub
+                    }
+                    if (json.has("instructions")) {
+                        val inst = json.optString("instructions", "").trim()
+                        if (inst.isNotBlank()) return inst
+                    }
+                } catch (_: Exception) {}
+            }
+            return description
+        }
+}
 
 data class StudentLeaveApplication(
     val id: String,

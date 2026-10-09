@@ -1,4 +1,4 @@
-﻿package com.vvit.smartcollege.ui.components
+package com.vvit.smartcollege.ui.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
@@ -20,8 +20,8 @@ fun VVITPrimaryButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     icon: ImageVector? = null,
-    containerColor: Color = PrimaryNavy,
-    contentColor: Color = CardWhite
+    containerColor: Color = if (ThemeState.isDarkMode.value) Color(0xFF2563EB) else Color(0xFF1A2A49),
+    contentColor: Color = Color.White
 ) {
     Button(
         onClick = onClick,
@@ -92,8 +92,8 @@ fun VVITActionChip(
     selected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    selectedBg: Color = PrimaryNavy,
-    selectedText: Color = CardWhite
+    selectedBg: Color = if (ThemeState.isDarkMode.value) Color(0xFF2563EB) else Color(0xFF1A2A49),
+    selectedText: Color = Color.White
 ) {
     FilterChip(
         selected = selected,

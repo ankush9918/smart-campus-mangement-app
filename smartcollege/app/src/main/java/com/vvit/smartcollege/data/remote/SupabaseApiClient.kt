@@ -641,19 +641,24 @@ object SupabaseApiClient {
             val calculatedRate = if (totalConductedRecords > 0) {
                 ((totalPresentRecords * 100) / totalConductedRecords).coerceIn(0, 100)
             } else {
-                rate
+                if (overallPercentage in 1..100) overallPercentage else 100
             }
 
             // Build list for all 6 official theory subjects
-            val result = officialTheorySubjects.mapIndexed { index, (name, code, total) ->
-                val stats = subjectMap[name] ?: subjectMap.entries.firstOrNull { 
-                    it.key.contains(name, ignoreCase = true) || name.contains(it.key, ignoreCase = true) 
-                }?.value
+            val result = officialTheorySubjects.mapIndexed { index, (name, code, _) ->
+                val master = MasterSubjectRegistry.find(code) ?: MasterSubjectRegistry.find(name)
+                val stats = subjectMap[name]
+                    ?: (if (master != null) subjectMap[master.name] else null)
+                    ?: subjectMap.entries.firstOrNull { 
+                        it.key.contains(name, ignoreCase = true) || name.contains(it.key, ignoreCase = true) ||
+                        it.key.contains(code, ignoreCase = true)
+                    }?.value
+
                 if (stats != null && stats.second > 0) {
                     val pct = (stats.first * 100) / stats.second
                     SubjectAttendance(
                         id = "att_sub_${index + 1}",
-                        subjectName = name,
+                        subjectName = master?.displayName ?: "$name ($code)",
                         subjectCode = code,
                         attendedClasses = stats.first,
                         totalClasses = stats.second,
@@ -661,26 +666,14 @@ object SupabaseApiClient {
                         isAlert = pct < 75
                     )
                 } else {
-                    // Realistic slight variation around student's overall attendance rate
-                    val offset = when (index) {
-                        0 -> 0
-                        1 -> 2
-                        2 -> -3
-                        3 -> 1
-                        4 -> -1
-                        5 -> 3
-                        else -> 0
-                    }
-                    val pct = (calculatedRate + offset).coerceIn(0, 100)
-                    val attended = ((total * pct) / 100).coerceAtMost(total)
                     SubjectAttendance(
                         id = "att_sub_${index + 1}",
-                        subjectName = name,
+                        subjectName = master?.displayName ?: "$name ($code)",
                         subjectCode = code,
-                        attendedClasses = attended,
-                        totalClasses = total,
-                        percentage = pct,
-                        isAlert = pct < 75
+                        attendedClasses = 0,
+                        totalClasses = 0,
+                        percentage = 100,
+                        isAlert = false
                     )
                 }
             }
@@ -694,32 +687,22 @@ object SupabaseApiClient {
             Log.e(TAG, "Error calculating attendance from records", e)
         }
 
-        // Fallback default: all 6 official theory subjects (no labs)
-        val fallbackList = officialTheorySubjects.mapIndexed { index, (name, code, total) ->
-            val offset = when (index) {
-                0 -> 0
-                1 -> 2
-                2 -> -3
-                3 -> 1
-                4 -> -1
-                5 -> 3
-                else -> 0
-            }
-            val pct = (rate + offset).coerceIn(0, 100)
-            val attended = ((total * pct) / 100).coerceAtMost(total)
+        // Fallback default: all 6 official theory subjects
+        val fallbackList = officialTheorySubjects.mapIndexed { index, (name, code, _) ->
+            val master = MasterSubjectRegistry.find(code) ?: MasterSubjectRegistry.find(name)
             SubjectAttendance(
                 id = "att_sub_${index + 1}",
-                subjectName = name,
+                subjectName = master?.displayName ?: "$name ($code)",
                 subjectCode = code,
-                attendedClasses = attended,
-                totalClasses = total,
-                percentage = pct,
-                isAlert = pct < 75
+                attendedClasses = 0,
+                totalClasses = 0,
+                percentage = 100,
+                isAlert = false
             )
         }
         return@withContext AttendanceCalculationResult(
             subjects = fallbackList,
-            calculatedPercentage = rate,
+            calculatedPercentage = if (rate in 1..100) rate else 100,
             totalClasses = 0,
             presentClasses = 0
         )

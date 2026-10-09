@@ -26,13 +26,15 @@ class TeacherViewModel(
     private val _selectedClass = MutableStateFlow("IT - Sem 3")
     val selectedClass: StateFlow<String> = _selectedClass.asStateFlow()
 
-    private val _selectedDate = MutableStateFlow("Oct 14, 2026")
+    private val _selectedDate = MutableStateFlow(
+        java.text.SimpleDateFormat("MMM dd, yyyy", java.util.Locale.getDefault()).format(java.util.Date())
+    )
     val selectedDate: StateFlow<String> = _selectedDate.asStateFlow()
 
     val assignedSubjects: StateFlow<List<String>> = teacherRepository.assignedSubjects
 
     private val _selectedSubject = MutableStateFlow(
-        teacherRepository.assignedSubjects.value.firstOrNull() ?: "Computer Organization & Architecture (BCS-302)"
+        teacherRepository.assignedSubjects.value.firstOrNull() ?: "Digital Electronics (BOE-310)"
     )
     val selectedSubject: StateFlow<String> = _selectedSubject.asStateFlow()
 
@@ -51,12 +53,14 @@ class TeacherViewModel(
     init {
         refreshRoster()
         viewModelScope.launch {
-            teacherRepository.refreshRemoteData()
             teacherRepository.assignedSubjects.collect { subjects ->
-                if (subjects.isNotEmpty() && !subjects.contains(_selectedSubject.value)) {
+                if (subjects.isNotEmpty() && (!subjects.contains(_selectedSubject.value) || _selectedSubject.value.isBlank())) {
                     _selectedSubject.value = subjects.first()
                 }
             }
+        }
+        viewModelScope.launch {
+            teacherRepository.refreshRemoteData()
         }
     }
 
@@ -120,12 +124,32 @@ class TeacherViewModel(
     }
 
     fun submitAttendance() {
+        val subject = _selectedSubject.value
+        val className = _selectedClass.value
         val markedCount = attendanceRoster.value.count { it.status != StudentAttendanceStatus.UNMARKED }
         val totalCount = attendanceRoster.value.size
 
-        teacherRepository.submitCurrentAttendance(_selectedClass.value, _selectedSubject.value)
-        teacherRepository.resetAttendance()
-        _toastMessage.value = "Attendance for ${_selectedSubject.value} (${_selectedClass.value}) submitted ($markedCount/$totalCount marked)! Desk reset for next session."
+        if (markedCount == 0) {
+            _toastMessage.value = "Please mark student attendance (Present/Absent/Leave) before submitting."
+            return
+        }
+
+        if (!teacherRepository.isSubjectAuthorized(subject)) {
+            _toastMessage.value = "You are not authorized to mark attendance for $subject."
+            return
+        }
+
+        viewModelScope.launch {
+            val result = teacherRepository.submitCurrentAttendance(className, subject)
+            if (result.isSuccess) {
+                val savedCount = result.getOrDefault(markedCount)
+                teacherRepository.resetAttendance()
+                _toastMessage.value = "Attendance for $subject ($className) submitted ($savedCount/$totalCount marked)! Synced to database."
+            } else {
+                val err = result.exceptionOrNull()?.message ?: "Failed to save attendance"
+                _toastMessage.value = "Submission failed: $err"
+            }
+        }
     }
 
     fun createAssignment(

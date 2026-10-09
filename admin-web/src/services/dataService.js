@@ -326,52 +326,7 @@ const INITIAL_PROFESSOR_TIMETABLE = [
   }
 ];
 
-const INITIAL_STUDENT_ATTENDANCE = [
-  {
-    id: 'att_s_01',
-    student_id: 'std_01',
-    student_name: 'Aditya Sharma',
-    roll_number: 'VVIT/CS/2021/045',
-    subject: 'Data Structure (BCS-301)',
-    date: '2026-10-03',
-    status: 'PRESENT',
-    marked_by: 'Kalpana Suman',
-    timestamp: new Date().toISOString()
-  },
-  {
-    id: 'att_s_02',
-    student_id: 'std_02',
-    student_name: 'Priya Patel',
-    roll_number: 'VVIT/CS/2021/046',
-    subject: 'Computer Organization & Architecture (BCS-302)',
-    date: '2026-10-03',
-    status: 'PRESENT',
-    marked_by: 'Prakash Pandey',
-    timestamp: new Date().toISOString()
-  },
-  {
-    id: 'att_s_03',
-    student_id: 'std_03',
-    student_name: 'Rohan Verma',
-    roll_number: 'VVIT/CS/2021/047',
-    subject: 'Discrete Structure & Theory of Logic (BCS-303)',
-    date: '2026-10-03',
-    status: 'ABSENT',
-    marked_by: 'Rishav Kumar Singh',
-    timestamp: new Date().toISOString()
-  },
-  {
-    id: 'att_s_04',
-    student_id: 'std_04',
-    student_name: 'Ananya Iyer',
-    roll_number: 'VVIT/EC/2021/012',
-    subject: 'Digital Electronics (BOE-310)',
-    date: '2026-10-03',
-    status: 'PRESENT',
-    marked_by: 'Anant Sikarwar',
-    timestamp: new Date().toISOString()
-  }
-];
+const INITIAL_STUDENT_ATTENDANCE = [];
 
 const INITIAL_FACULTY_ATTENDANCE = [
   {
@@ -1047,14 +1002,17 @@ export const dataService = {
         query = query.eq('date', dateFilter);
       }
       const { data, error } = await query;
-      if (!error && Array.isArray(data) && data.length > 0) {
+      if (!error && Array.isArray(data)) {
         setLocal('student_attendance', data);
         return { data, source: 'supabase' };
+      }
+      if (error) {
+        console.warn('Supabase getStudentAttendance error:', error);
       }
     } catch (e) {
       console.warn('Supabase getStudentAttendance exception:', e);
     }
-    const all = getLocal('student_attendance', INITIAL_STUDENT_ATTENDANCE);
+    const all = getLocal('student_attendance', []);
     const filtered = dateFilter ? all.filter(a => a.date === dateFilter) : all;
     return { data: filtered, source: 'local' };
   },
@@ -1066,7 +1024,7 @@ export const dataService = {
       timestamp: new Date().toISOString()
     };
 
-    const current = getLocal('student_attendance', INITIAL_STUDENT_ATTENDANCE);
+    const current = getLocal('student_attendance', []);
     const updated = [newRecord, ...current];
     setLocal('student_attendance', updated);
 

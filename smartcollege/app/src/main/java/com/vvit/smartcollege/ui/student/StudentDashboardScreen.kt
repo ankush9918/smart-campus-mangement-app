@@ -40,6 +40,10 @@ fun StudentDashboardScreen(
         assignments.count { it.status == com.vvit.smartcollege.data.model.AssignmentStatus.PENDING }
     }
 
+    LaunchedEffect(Unit) {
+        viewModel.refresh()
+    }
+
     // Determine current day of week (e.g. Mon, Tue, Wed, Thu, Fri, Sat)
     val currentDay = remember {
         val cal = java.util.Calendar.getInstance()

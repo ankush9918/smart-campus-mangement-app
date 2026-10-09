@@ -32,8 +32,7 @@ class TeacherRepository(
     private fun calculateAssignedSubjects(profile: TeacherProfile): List<String> {
         val list = profile.subjects.map { MasterSubjectRegistry.normalize(it) }.filter { it.isNotBlank() }
         return if (list.isNotEmpty()) list else listOf(
-            "Computer Organization & Architecture (BCS-302)",
-            "Data Structure (BCS-301)"
+            "Digital Electronics (BOE-310)"
         )
     }
 
@@ -193,13 +192,8 @@ class TeacherRepository(
     fun updateStudentAttendance(
         rosterId: String, 
         status: StudentAttendanceStatus, 
-        subject: String = _assignedSubjects.value.firstOrNull() ?: "Computer Organization & Architecture (BCS-302)"
+        subject: String = _assignedSubjects.value.firstOrNull() ?: "Digital Electronics (BOE-310)"
     ) {
-        if (!isSubjectAuthorized(subject)) {
-            android.util.Log.e("TeacherRepository", "Security Reject: Teacher ${_teacherProfile.value.name} is not assigned to subject $subject")
-            return
-        }
-        val canonicalSub = MasterSubjectRegistry.normalize(subject)
         val currentList = _attendanceRoster.value.toMutableList()
         val index = currentList.indexOfFirst { it.id == rosterId }
         if (index != -1) {
@@ -209,93 +203,58 @@ class TeacherRepository(
             currentList[index] = currentItem.copy(status = newStatus)
             _attendanceRoster.value = currentList
             MockDatabase.teacherAttendanceRoster.value = currentList
-
-            // Sync attendance update to Supabase in background
-            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
-                try {
-                    com.vvit.smartcollege.data.remote.SupabaseApiClient.postStudentAttendance(
-                        studentId = currentItem.id,
-                        studentName = currentItem.studentName,
-                        rollNumber = currentItem.rollNo,
-                        subject = canonicalSub,
-                        date = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date()),
-                        status = newStatus.name,
-                        teacherId = _teacherProfile.value.id,
-                        markedBy = _teacherProfile.value.name
-                    )
-                } catch (e: Exception) {
-                    // Ignore background sync errors
-                }
-            }
         }
     }
 
-    fun markAllPresent(subject: String = _assignedSubjects.value.firstOrNull() ?: "Computer Organization & Architecture (BCS-302)") {
-        if (!isSubjectAuthorized(subject)) {
-            android.util.Log.e("TeacherRepository", "Security Reject: Teacher ${_teacherProfile.value.name} is not assigned to subject $subject")
-            return
-        }
-        val canonicalSub = MasterSubjectRegistry.normalize(subject)
+    fun markAllPresent(subject: String = _assignedSubjects.value.firstOrNull() ?: "Digital Electronics (BOE-310)") {
         teacherDao?.markAllPresent()
         val roster = _attendanceRoster.value.map {
             it.copy(status = StudentAttendanceStatus.PRESENT)
         }
         _attendanceRoster.value = roster
         MockDatabase.teacherAttendanceRoster.value = roster
-
-        // Sync all to Supabase in background
-        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
-            roster.forEach { item ->
-                try {
-                    com.vvit.smartcollege.data.remote.SupabaseApiClient.postStudentAttendance(
-                        studentId = item.id,
-                        studentName = item.studentName,
-                        rollNumber = item.rollNo,
-                        subject = canonicalSub,
-                        date = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date()),
-                        status = "PRESENT",
-                        teacherId = _teacherProfile.value.id,
-                        markedBy = _teacherProfile.value.name
-                    )
-                } catch (e: Exception) {
-                    // Ignore
-                }
-            }
-        }
     }
 
-    fun submitCurrentAttendance(
+    suspend fun submitCurrentAttendance(
         className: String = "IT - Sem 3",
-        subject: String = _assignedSubjects.value.firstOrNull() ?: "Computer Organization & Architecture (BCS-302)"
-    ) {
-        if (!isSubjectAuthorized(subject)) {
-            android.util.Log.e("TeacherRepository", "Security Reject: Teacher ${_teacherProfile.value.name} is not assigned to subject $subject")
-            return
+        subject: String = _assignedSubjects.value.firstOrNull() ?: "Digital Electronics (BOE-310)"
+    ): Result<Int> = withContext(Dispatchers.IO) {
+        val assigned = _assignedSubjects.value
+        val isAuth = if (assigned.isEmpty()) true else MasterSubjectRegistry.isAuthorized(assigned, subject)
+        if (!isAuth) {
+            val errMsg = "Security Reject: You are not assigned to $subject. (Assigned: ${assigned.joinToString()})"
+            android.util.Log.e("TeacherRepository", errMsg)
+            return@withContext Result.failure(Exception(errMsg))
         }
+
         val canonicalSub = MasterSubjectRegistry.normalize(subject)
         val roster = _attendanceRoster.value
         val marked = roster.filter { it.status != StudentAttendanceStatus.UNMARKED }
-        if (marked.isNotEmpty()) {
-            CoroutineScope(Dispatchers.IO).launch {
-                val todayStr = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
-                marked.forEach { item ->
-                    try {
-                        SupabaseApiClient.postStudentAttendance(
-                            studentId = item.id,
-                            studentName = item.studentName,
-                            rollNumber = item.rollNo,
-                            subject = canonicalSub,
-                            date = todayStr,
-                            status = item.status.name,
-                            teacherId = _teacherProfile.value.id,
-                            markedBy = _teacherProfile.value.name
-                        )
-                    } catch (e: Exception) {
-                        // Ignore
-                    }
-                }
+        if (marked.isEmpty()) {
+            return@withContext Result.failure(Exception("No students marked. Please mark attendance before submitting."))
+        }
+
+        val todayStr = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
+        var savedCount = 0
+        marked.forEach { item ->
+            try {
+                val ok = SupabaseApiClient.postStudentAttendance(
+                    studentId = item.id,
+                    studentName = item.studentName,
+                    rollNumber = item.rollNo,
+                    subject = canonicalSub,
+                    date = todayStr,
+                    status = item.status.name,
+                    teacherId = _teacherProfile.value.id,
+                    markedBy = _teacherProfile.value.name
+                )
+                if (ok) savedCount++
+            } catch (e: Exception) {
+                android.util.Log.e("TeacherRepository", "Error posting student attendance for ${item.studentName}", e)
             }
         }
+
+        Result.success(savedCount)
     }
 
     fun resetAttendance() {

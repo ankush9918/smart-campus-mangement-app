@@ -56,7 +56,7 @@ fun TeacherMainScreen(
                     viewModel = viewModel,
                     onNavigateToSection = { currentTab = it }
                 )
-                "schedule" -> TeacherProfileScreen(viewModel = viewModel, onLogout = onLogout)
+                "schedule" -> TeacherScheduleScreen(viewModel = viewModel)
                 "attendance" -> TeacherAttendanceDeskScreen(viewModel = viewModel)
                 "assignments" -> TeacherAssignmentsHubScreen(viewModel = viewModel)
                 "academics" -> TeacherAcademicsDeskScreen(viewModel = viewModel)

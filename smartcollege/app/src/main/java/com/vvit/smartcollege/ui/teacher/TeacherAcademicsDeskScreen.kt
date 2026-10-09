@@ -38,7 +38,6 @@ fun TeacherAcademicsDeskScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    var activeTab by remember { mutableStateOf(0) } // 0: Syllabus & Material, 1: Exam Schedules
     val studyMaterials by viewModel.studyMaterials.collectAsState()
     val assignedSubjects by viewModel.assignedSubjects.collectAsState()
 
@@ -102,7 +101,7 @@ fun TeacherAcademicsDeskScreen(
     ) {
         VVITHeader(
             title = "Academics Desk",
-            subtitle = "Syllabus, Files & Exam Prep"
+            subtitle = "Syllabus, Notes & Study Materials"
         )
 
         Column(
@@ -112,184 +111,145 @@ fun TeacherAcademicsDeskScreen(
         ) {
             Spacer(modifier = Modifier.height(12.dp))
 
-            VVITSegmentedTabRow(
-                tabs = listOf("Syllabus & Material", "Exam Schedules"),
-                selectedIndex = activeTab,
-                onTabSelected = { activeTab = it }
-            )
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                item {
+                    // Upload Dropzone Card matching design
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                showUploadModal = true
+                            },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = CardWhite),
+                        border = androidx.compose.foundation.BorderStroke(1.2.dp, PrimaryNavy.copy(alpha = 0.5f))
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(20.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CloudUpload,
+                                contentDescription = "Upload",
+                                tint = PrimaryNavy,
+                                modifier = Modifier.size(38.dp)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Upload New Material",
+                                style = Typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = PrimaryNavy)
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Tap to select notes, slides, or documents",
+                                style = Typography.bodySmall.copy(color = TextSecondary, fontSize = 12.sp)
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Supported: PDF, DOC, DOCX, PPT, PPTX, TXT",
+                                style = Typography.labelSmall.copy(color = TextMuted, fontSize = 10.sp)
+                            )
+                        }
+                    }
+                }
 
-            Spacer(modifier = Modifier.height(14.dp))
+                item {
+                    SectionHeader(title = "Previously Shared Files")
+                }
 
-            if (activeTab == 0) {
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(14.dp),
-                    modifier = Modifier.fillMaxSize()
-                ) {
+                if (studyMaterials.isEmpty()) {
                     item {
-                        // Upload Dropzone Card matching design
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = CardDefaults.cardColors(containerColor = CardWhite),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Description,
+                                    contentDescription = null,
+                                    tint = TextSecondary.copy(alpha = 0.4f),
+                                    modifier = Modifier.size(36.dp)
+                                )
+                                Text(
+                                    text = "No study materials shared yet",
+                                    style = Typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                                )
+                                Text(
+                                    text = "Upload notes, syllabus or slides above to share them with your students.",
+                                    style = Typography.bodySmall.copy(color = TextSecondary, textAlign = TextAlign.Center, fontSize = 11.sp)
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    items(studyMaterials) { material ->
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
-                                    showUploadModal = true
-                                },
-                            shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(containerColor = CardWhite),
-                            border = androidx.compose.foundation.BorderStroke(1.2.dp, PrimaryNavy.copy(alpha = 0.5f))
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(20.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.CloudUpload,
-                                    contentDescription = "Upload",
-                                    tint = PrimaryNavy,
-                                    modifier = Modifier.size(38.dp)
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = "Upload New Material",
-                                    style = Typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = PrimaryNavy)
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "Tap to select notes, slides, or documents",
-                                    style = Typography.bodySmall.copy(color = TextSecondary, fontSize = 12.sp)
-                                )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = "Supported: PDF, DOC, DOCX, PPT, PPTX, TXT",
-                                    style = Typography.labelSmall.copy(color = TextMuted, fontSize = 10.sp)
-                                )
-                            }
-                        }
-                    }
-
-                    item {
-                        SectionHeader(title = "Previously Shared Files")
-                    }
-
-                    if (studyMaterials.isEmpty()) {
-                        item {
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(10.dp),
-                                colors = CardDefaults.cardColors(containerColor = CardWhite),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
-                            ) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(24.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Description,
-                                        contentDescription = null,
-                                        tint = TextSecondary.copy(alpha = 0.4f),
-                                        modifier = Modifier.size(36.dp)
-                                    )
-                                    Text(
-                                        text = "No study materials shared yet",
-                                        style = Typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = TextPrimary)
-                                    )
-                                    Text(
-                                        text = "Upload notes, syllabus or slides above to share them with your students.",
-                                        style = Typography.bodySmall.copy(color = TextSecondary, textAlign = TextAlign.Center, fontSize = 11.sp)
-                                    )
-                                }
-                            }
-                        }
-                    } else {
-                        items(studyMaterials) { material ->
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        val uriStr = material.fileUri ?: material.downloadUrl
-                                        if (!uriStr.isNullOrBlank()) {
-                                            try {
-                                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(uriStr)).apply {
-                                                    flags = android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_ACTIVITY_NEW_TASK
-                                                }
-                                                context.startActivity(intent)
-                                            } catch (_: Exception) {}
-                                        }
-                                    },
-                                shape = RoundedCornerShape(10.dp),
-                                colors = CardDefaults.cardColors(containerColor = CardWhite),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(14.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                                        Icon(
-                                            imageVector = Icons.Default.Description,
-                                            contentDescription = null,
-                                            tint = AccentOrange,
-                                            modifier = Modifier.size(24.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(10.dp))
-                                        Column {
-                                            Text(
-                                                text = material.title,
-                                                style = Typography.bodyMedium.copy(fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                            )
-                                            Spacer(modifier = Modifier.height(2.dp))
-                                            val fileDisplay = if (!material.fileName.isNullOrBlank() && material.fileName != material.title) " • ${material.fileName}" else ""
-                                            Text(
-                                                text = "Shared ${material.sharedDate} • ${material.subjectName}$fileDisplay",
-                                                style = Typography.bodySmall.copy(color = TextSecondary, fontSize = 11.sp)
-                                            )
-                                        }
+                                    val uriStr = material.fileUri ?: material.downloadUrl
+                                    if (!uriStr.isNullOrBlank()) {
+                                        try {
+                                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(uriStr)).apply {
+                                                flags = android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                                            }
+                                            context.startActivity(intent)
+                                        } catch (_: Exception) {}
                                     }
-                                    StatusBadge(text = material.fileType, style = BadgeStyle.NEUTRAL)
-                                }
-                            }
-                        }
-                    }
-
-                    item {
-                        Spacer(modifier = Modifier.height(16.dp))
-                    }
-                }
-            } else {
-                // Exam Schedules view
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    item {
-                        SectionHeader(title = "Invigilation & Duty Timetable")
-                    }
-                    items(listOf(
-                        Triple("Data Structures & Algorithms (CS-301)", "Oct 18, 2026 • 10:00 AM - 01:00 PM", "Venue: Block C - Hall 1 • Invigilator"),
-                        Triple("Database Management System (CS-304)", "Oct 20, 2026 • 02:00 PM - 05:00 PM", "Venue: Block A - Room 204 • Chief Examiner")
-                    )) { (subject, time, duty) ->
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
+                                },
+                            shape = RoundedCornerShape(10.dp),
                             colors = CardDefaults.cardColors(containerColor = CardWhite),
                             border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
                         ) {
-                            Column(modifier = Modifier.padding(14.dp)) {
-                                Text(text = subject, style = Typography.titleSmall.copy(fontWeight = FontWeight.Bold))
-                                Spacer(modifier = Modifier.height(3.dp))
-                                Text(text = time, style = Typography.bodySmall.copy(color = TextSecondary))
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(text = duty, style = Typography.labelSmall.copy(color = AccentOrange, fontWeight = FontWeight.Bold))
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(14.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                    Icon(
+                                        imageVector = Icons.Default.Description,
+                                        contentDescription = null,
+                                        tint = AccentOrange,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Column {
+                                        Text(
+                                            text = material.title,
+                                            style = Typography.bodyMedium.copy(fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        val fileDisplay = if (!material.fileName.isNullOrBlank() && material.fileName != material.title) " • ${material.fileName}" else ""
+                                        Text(
+                                            text = "Shared ${material.sharedDate} • ${material.subjectName}$fileDisplay",
+                                            style = Typography.bodySmall.copy(color = TextSecondary, fontSize = 11.sp)
+                                        )
+                                    }
+                                }
+                                StatusBadge(text = material.fileType, style = BadgeStyle.NEUTRAL)
                             }
                         }
                     }
+                }
+
+                item {
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
             }
         }

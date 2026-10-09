@@ -1,9 +1,10 @@
-﻿package com.vvit.smartcollege.ui.teacher
+package com.vvit.smartcollege.ui.teacher
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -34,7 +35,7 @@ fun TeacherMainScreen(
         BottomNavItem("home", "Home", Icons.Default.Home),
         BottomNavItem("schedule", "Classes", Icons.Default.DateRange),
         BottomNavItem("attendance", "Attendance", Icons.Default.CheckCircle),
-        BottomNavItem("marks", "Marks", Icons.Default.Assessment),
+        BottomNavItem("assignments", "Assignments", Icons.AutoMirrored.Filled.Assignment),
         BottomNavItem("profile", "Profile", Icons.Default.Person)
     )
 
@@ -59,7 +60,6 @@ fun TeacherMainScreen(
                 "attendance" -> TeacherAttendanceDeskScreen(viewModel = viewModel)
                 "assignments" -> TeacherAssignmentsHubScreen(viewModel = viewModel)
                 "academics" -> TeacherAcademicsDeskScreen(viewModel = viewModel)
-                "marks", "performance" -> TeacherPerformanceScreen(viewModel = viewModel)
                 "notices_leave" -> TeacherNoticesLeaveScreen(viewModel = viewModel)
                 "profile" -> TeacherProfileScreen(viewModel = viewModel, onLogout = onLogout)
             }

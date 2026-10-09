@@ -1,4 +1,4 @@
-﻿package com.vvit.smartcollege.ui.components
+package com.vvit.smartcollege.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -22,8 +22,8 @@ fun VVITSegmentedTabRow(
     selectedIndex: Int,
     onTabSelected: (Int) -> Unit,
     modifier: Modifier = Modifier,
-    selectedColor: Color = PrimaryNavy,
-    unselectedColor: Color = CardBorder
+    selectedColor: Color = if (ThemeState.isDarkMode.value) Color(0xFF2563EB) else Color(0xFF1A2A49),
+    unselectedColor: Color = Color.Transparent
 ) {
     Row(
         modifier = modifier
@@ -39,7 +39,7 @@ fun VVITSegmentedTabRow(
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(if (isSelected) selectedColor else Color.Transparent)
+                    .background(if (isSelected) selectedColor else unselectedColor)
                     .clickable { onTabSelected(index) }
                     .padding(vertical = 8.dp),
                 contentAlignment = Alignment.Center
@@ -48,7 +48,7 @@ fun VVITSegmentedTabRow(
                     text = title,
                     style = Typography.labelMedium.copy(
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                        color = if (isSelected) CardWhite else TextSecondary,
+                        color = if (isSelected) Color.White else TextSecondary,
                         fontSize = 12.sp
                     ),
                     textAlign = TextAlign.Center

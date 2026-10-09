@@ -74,7 +74,7 @@ fun TeacherProfileScreen(
 
                     Spacer(modifier = Modifier.width(14.dp))
 
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = profile.name,
                             style = Typography.titleLarge.copy(
@@ -99,6 +99,8 @@ fun TeacherProfileScreen(
                             )
                         )
                     }
+
+                    ThemeToggleButton()
                 }
             }
 
@@ -164,9 +166,13 @@ fun TeacherProfileScreen(
                                     text = item.subjectName,
                                     style = Typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                 )
+                                val subtext = when {
+                                    item.room.isBlank() || item.room.equals("LH-1", ignoreCase = true) || item.room.equals("LH1", ignoreCase = true) -> "${item.section} • ${item.lectureType}"
+                                    else -> "${item.section} • ${item.room} • ${item.lectureType}"
+                                }
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
-                                    text = "${item.section} • ${item.room} • ${item.lectureType}",
+                                    text = subtext,
                                     style = Typography.bodySmall.copy(color = TextSecondary, fontSize = 11.sp)
                                 )
                             }

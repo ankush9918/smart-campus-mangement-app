@@ -20,6 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vvit.smartcollege.ui.components.StudentAvatar
+import com.vvit.smartcollege.ui.components.ThemeToggleButton
 import com.vvit.smartcollege.ui.components.VVITConfirmDialog
 import com.vvit.smartcollege.ui.components.VVITHeader
 import com.vvit.smartcollege.ui.components.VVITOutlinedButton
@@ -74,7 +75,7 @@ fun StudentProfileScreen(
 
                     Spacer(modifier = Modifier.width(14.dp))
 
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = profile.name,
                             style = Typography.titleLarge.copy(
@@ -91,6 +92,8 @@ fun StudentProfileScreen(
                             )
                         )
                     }
+
+                    ThemeToggleButton()
                 }
             }
 

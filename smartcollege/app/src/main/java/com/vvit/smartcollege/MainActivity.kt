@@ -1,4 +1,4 @@
-﻿package com.vvit.smartcollege
+package com.vvit.smartcollege
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -15,6 +15,7 @@ import com.vvit.smartcollege.ui.theme.SurfaceLight
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        com.vvit.smartcollege.ui.theme.ThemeState.init(this)
         enableEdgeToEdge()
         setContent {
             SmartCollegeTheme {

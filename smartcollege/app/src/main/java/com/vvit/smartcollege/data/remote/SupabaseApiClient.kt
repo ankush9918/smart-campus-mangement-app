@@ -109,13 +109,28 @@ object SupabaseApiClient {
                     if (!isMatch) continue
                 }
 
+                val rawDesc = obj.optString("description", "")
+                var cleanDesc = rawDesc
+                if (rawDesc.trim().startsWith("{")) {
+                    try {
+                        val meta = JSONObject(rawDesc)
+                        if (meta.has("subject")) {
+                            val sub = meta.optString("subject", "").trim()
+                            if (sub.isNotBlank()) cleanDesc = sub
+                        } else if (meta.has("instructions")) {
+                            val inst = meta.optString("instructions", "").trim()
+                            if (inst.isNotBlank()) cleanDesc = inst
+                        }
+                    } catch (_: Exception) {}
+                }
+
                 list.add(
                     NoticeItem(
                         id = obj.optString("id", "cir_$i"),
                         title = obj.optString("title", "Notice"),
                         category = obj.optString("category", "ACADEMICS"),
                         timeAgo = obj.optString("date", "Today"),
-                        description = obj.optString("description", ""),
+                        description = cleanDesc,
                         isUrgent = obj.optBoolean("is_urgent", false),
                         date = obj.optString("date", "2026-10-03")
                     )

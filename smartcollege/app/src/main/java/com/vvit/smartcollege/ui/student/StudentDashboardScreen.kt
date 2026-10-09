@@ -95,7 +95,7 @@ fun StudentDashboardScreen(
             ) {
                 Column {
                     Text(
-                        text = "Welcome back,",
+                        text = "Welcome,",
                         style = Typography.bodyMedium.copy(
                             fontWeight = FontWeight.Medium,
                             color = TextSecondary,
@@ -128,6 +128,14 @@ fun StudentDashboardScreen(
 
         // Quick Stats row
         item {
+            val semNumber = remember(profile.currentSemester) {
+                Regex("""\d+""").find(profile.currentSemester)?.value ?: "3"
+            }
+            val semSubtitle = remember(profile.currentSemester) {
+                val yr = Regex("""Year\s*\d+""", RegexOption.IGNORE_CASE).find(profile.currentSemester)?.value
+                yr ?: "Active Term"
+            }
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -141,12 +149,12 @@ fun StudentDashboardScreen(
                     onClick = { onNavigateToSection("attendance") }
                 )
                 StatCard(
-                    title = "CGPA",
-                    value = String.format("%.1f", profile.cgpa),
-                    subtitle = "Sem 4 Result",
+                    title = "Semester",
+                    value = "Sem $semNumber",
+                    subtitle = semSubtitle,
                     highlightColor = InfoBlue,
                     modifier = Modifier.weight(1f),
-                    onClick = { onNavigateToSection("results") }
+                    onClick = { onNavigateToSection("timetable") }
                 )
                 StatCard(
                     title = "Pending Tasks",
@@ -167,7 +175,7 @@ fun StudentDashboardScreen(
                     QuickActionGridItem(
                         title = "Attendance",
                         icon = Icons.Default.CheckCircle,
-                        iconBgColor = PrimaryNavy,
+                        iconBgColor = if (ThemeState.isDarkMode.value) Color(0xFF2563EB) else PrimaryNavyDark,
                         onClick = { onNavigateToSection("attendance") },
                         modifier = Modifier.weight(1f)
                     )
@@ -189,13 +197,6 @@ fun StudentDashboardScreen(
                 }
 
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                    QuickActionGridItem(
-                        title = "Results",
-                        icon = Icons.Default.Assessment,
-                        iconBgColor = SuccessGreen,
-                        onClick = { onNavigateToSection("results") },
-                        modifier = Modifier.weight(1f)
-                    )
                     QuickActionGridItem(
                         title = "Materials",
                         icon = Icons.Default.FolderOpen,
@@ -260,9 +261,14 @@ fun StudentDashboardScreen(
                                             color = TextPrimary
                                         )
                                     )
+                                    val subtext = when {
+                                        slot.room.isBlank() || slot.room.equals("LH-1", ignoreCase = true) || slot.room.equals("LH1", ignoreCase = true) -> slot.facultyName
+                                        slot.facultyName.isNotBlank() -> "${slot.room} • ${slot.facultyName}"
+                                        else -> slot.room
+                                    }
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
-                                        text = "${slot.room} • ${slot.facultyName}",
+                                        text = subtext,
                                         style = Typography.bodySmall.copy(
                                             color = TextSecondary,
                                             fontSize = 11.sp
@@ -320,7 +326,7 @@ fun StudentDashboardScreen(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = notice.description,
+                            text = notice.displayDescription,
                             style = Typography.bodySmall.copy(color = TextSecondary, fontSize = 11.sp),
                             maxLines = 2
                         )

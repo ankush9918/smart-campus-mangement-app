@@ -85,8 +85,16 @@ class SmartCollegeUnitTest {
 
     @Test
     fun testAssignmentSubmission() {
+        val teacherRepo = TeacherRepository()
+        teacherRepo.createAssignment(
+            title = "Test Unit Assignment",
+            subjectName = "Computer Networks",
+            instructions = "Submit in PDF format",
+            dueDate = "2026-10-15",
+            maxMarks = 100
+        )
         val studentRepo = StudentRepository()
-        val assignment = studentRepo.assignments.value.first()
+        val assignment = studentRepo.assignments.value.first { it.title == "Test Unit Assignment" }
         studentRepo.submitAssignment(assignment.id, "Test_Submission.pdf")
 
         val updated = studentRepo.assignments.value.first { it.id == assignment.id }

@@ -175,9 +175,14 @@ fun TimetablePeriodCard(
                         fontSize = 14.sp
                     )
                 )
+                val subtext = when {
+                    entry.room.isBlank() || entry.room.equals("LH-1", ignoreCase = true) || entry.room.equals("LH1", ignoreCase = true) -> entry.facultyName
+                    entry.facultyName.isNotBlank() -> "${entry.facultyName} • ${entry.room}"
+                    else -> entry.room
+                }
                 Spacer(modifier = Modifier.height(3.dp))
                 Text(
-                    text = "${entry.facultyName} • ${entry.room}",
+                    text = subtext,
                     style = Typography.bodySmall.copy(
                         color = TextSecondary,
                         fontSize = 11.sp

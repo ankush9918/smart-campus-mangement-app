@@ -8,12 +8,13 @@ import com.vvit.smartcollege.data.model.UserRole
 
 class AuthDao(private val db: SQLiteDatabase) {
 
-    fun authenticate(email: String, password: String, role: UserRole): User? {
+    fun authenticate(emailOrIdentifier: String, password: String, role: UserRole): User? {
+        val input = emailOrIdentifier.trim()
         val cursor = db.query(
             DbConstants.TABLE_USERS,
             null,
-            "LOWER(email) = LOWER(?) AND password = ? AND role = ?",
-            arrayOf(email.trim(), password, role.name),
+            "(LOWER(email) = LOWER(?) OR UPPER(identifier) = UPPER(?) OR id = ?) AND password = ? AND role = ?",
+            arrayOf(input, input, input, password, role.name),
             null, null, null
         )
         return cursor.use {

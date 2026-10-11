@@ -23,12 +23,16 @@ import com.vvit.smartcollege.data.model.StudentRosterItem
 import com.vvit.smartcollege.ui.components.*
 import com.vvit.smartcollege.ui.theme.*
 
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
+
 @Composable
 fun TeacherDashboardScreen(
     viewModel: TeacherViewModel,
     onNavigateToSection: (String) -> Unit,
+    onLogout: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
+    var showLogoutDialog by remember { mutableStateOf(false) }
     val profile by viewModel.profile.collectAsState()
     val schedule by viewModel.schedule.collectAsState()
     val notices by viewModel.notices.collectAsState()
@@ -115,16 +119,31 @@ fun TeacherDashboardScreen(
                     )
                 }
 
-                Box(
-                    modifier = Modifier.clickable { onNavigateToSection("profile") }
-                ) {
-                    StudentAvatar(
-                        photoUrl = profile.photoUrl,
-                        name = profile.name,
-                        size = 40.dp,
-                        textStyle = Typography.labelLarge,
-                        backgroundColor = PrimaryNavyLight
-                    )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (onLogout != null) {
+                        IconButton(
+                            onClick = { showLogoutDialog = true },
+                            modifier = Modifier.size(38.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ExitToApp,
+                                contentDescription = "Log Out",
+                                tint = TextSecondary
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(4.dp))
+                    }
+                    Box(
+                        modifier = Modifier.clickable { onNavigateToSection("profile") }
+                    ) {
+                        StudentAvatar(
+                            photoUrl = profile.photoUrl,
+                            name = profile.name,
+                            size = 40.dp,
+                            textStyle = Typography.labelLarge,
+                            backgroundColor = PrimaryNavyLight
+                        )
+                    }
                 }
             }
         }
@@ -571,6 +590,20 @@ fun TeacherDashboardScreen(
             },
             containerColor = CardWhite,
             shape = RoundedCornerShape(14.dp)
+        )
+    }
+
+    if (showLogoutDialog && onLogout != null) {
+        VVITConfirmDialog(
+            title = "Log Out",
+            message = "Are you sure you want to log out of Recm?",
+            confirmText = "Log Out",
+            confirmButtonColor = ErrorRed,
+            onConfirm = {
+                showLogoutDialog = false
+                onLogout()
+            },
+            onDismiss = { showLogoutDialog = false }
         )
     }
 }

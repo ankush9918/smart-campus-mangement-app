@@ -54,7 +54,8 @@ fun TeacherMainScreen(
             when (currentTab) {
                 "home" -> TeacherDashboardScreen(
                     viewModel = viewModel,
-                    onNavigateToSection = { currentTab = it }
+                    onNavigateToSection = { currentTab = it },
+                    onLogout = onLogout
                 )
                 "schedule" -> TeacherScheduleScreen(viewModel = viewModel)
                 "attendance" -> TeacherAttendanceDeskScreen(viewModel = viewModel)

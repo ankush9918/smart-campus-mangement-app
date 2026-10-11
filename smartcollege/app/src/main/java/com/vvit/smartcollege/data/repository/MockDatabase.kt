@@ -7,15 +7,7 @@ import kotlinx.coroutines.flow.asStateFlow
 
 object MockDatabase {
 
-    val currentUser = MutableStateFlow<User?>(
-        User(
-            id = "std_1",
-            name = "Aditya Sharma",
-            email = "student.vvit@college.edu",
-            role = UserRole.STUDENT,
-            identifier = "VVIT/CS/2021/045"
-        )
-    )
+    val currentUser = MutableStateFlow<User?>(null)
 
     val studentProfile = MutableStateFlow(
         StudentProfile(

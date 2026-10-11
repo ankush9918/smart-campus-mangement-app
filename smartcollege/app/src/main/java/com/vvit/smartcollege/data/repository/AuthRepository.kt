@@ -17,19 +17,8 @@ class AuthRepository(
     private val sessionManager: SessionManager? = DatabaseProvider.sessionManager ?: SessionManager.get()
 ) {
 
-    private val _currentUser = MutableStateFlow<User?>(
-        sessionManager?.getSession() ?: MockDatabase.currentUser.value
-    )
+    private val _currentUser = MutableStateFlow<User?>(null)
     val currentUser: StateFlow<User?> = _currentUser.asStateFlow()
-
-    init {
-        // Sync session on initialization
-        val savedSession = sessionManager?.getSession()
-        if (savedSession != null) {
-            _currentUser.value = savedSession
-            MockDatabase.currentUser.value = savedSession
-        }
-    }
 
     /**
      * Asynchronous login using Supabase Authentication with Role-Based Access Control (RBAC)
@@ -155,14 +144,23 @@ class AuthRepository(
         }
 
         // 3. Fallback for built-in demo credentials (offline testing)
-        val isDemoStudent = trimmedEmail.equals("student.vvit@college.edu", ignoreCase = true) && password == "password123" && role == UserRole.STUDENT
-        val isDemoTeacher = trimmedEmail.equals("teacher.vvit@college.edu", ignoreCase = true) && password == "password123" && role == UserRole.TEACHER
+        val isDemoStudent = (trimmedEmail.equals("student.vvit@college.edu", ignoreCase = true)
+            || trimmedEmail.equals("VVIT/CS/2021/045", ignoreCase = true)
+            || trimmedEmail.equals("std_1", ignoreCase = true)
+            || trimmedEmail.equals("student", ignoreCase = true))
+            && password == "password123" && role == UserRole.STUDENT
+
+        val isDemoTeacher = (trimmedEmail.equals("teacher.vvit@college.edu", ignoreCase = true)
+            || trimmedEmail.equals("VVIT/CS/T-104", ignoreCase = true)
+            || trimmedEmail.equals("tch_1", ignoreCase = true)
+            || trimmedEmail.equals("teacher", ignoreCase = true))
+            && password == "password123" && role == UserRole.TEACHER
 
         if (isDemoStudent || isDemoTeacher) {
             val defaultUser = when (role) {
-                UserRole.STUDENT -> User(id = "std_1", name = "Aditya Sharma", email = trimmedEmail, role = UserRole.STUDENT, identifier = "VVIT/CS/2021/045")
-                UserRole.TEACHER -> User(id = "tch_1", name = "Dr. Rajesh Kumar", email = trimmedEmail, role = UserRole.TEACHER, identifier = "VVIT/CS/T-104")
-                UserRole.ADMIN -> User(id = "adm_1", name = "Dr. Rajesh Varma", email = trimmedEmail, role = UserRole.ADMIN, identifier = "EMP-ADM-001")
+                UserRole.STUDENT -> User(id = "std_1", name = "Aditya Sharma", email = "student.vvit@college.edu", role = UserRole.STUDENT, identifier = "VVIT/CS/2021/045")
+                UserRole.TEACHER -> User(id = "tch_1", name = "Dr. Rajesh Kumar", email = "teacher.vvit@college.edu", role = UserRole.TEACHER, identifier = "VVIT/CS/T-104")
+                UserRole.ADMIN -> User(id = "adm_1", name = "Dr. Rajesh Varma", email = "admin.vvit@college.edu", role = UserRole.ADMIN, identifier = "EMP-ADM-001")
             }
             sessionManager?.saveSession(defaultUser)
             _currentUser.value = defaultUser
@@ -170,7 +168,11 @@ class AuthRepository(
             return@withContext Result.success(defaultUser)
         }
 
-        val errorMsg = authResult.errorMessage ?: "Invalid email or password. Please check your credentials."
+        val errorMsg = if (authResult.errorMessage?.contains("Invalid login credentials", ignoreCase = true) == true) {
+            "Invalid credentials. Please check your User ID and password."
+        } else {
+            authResult.errorMessage ?: "Invalid credentials. Please check your User ID and password."
+        }
         return@withContext Result.failure(Exception(errorMsg))
     }
 
@@ -185,7 +187,7 @@ class AuthRepository(
                 MockDatabase.currentUser.value = user
                 Result.success(user)
             } else {
-                if (authDao.isEmailRegistered(trimmedEmail)) {
+                if (authDao.isEmailRegistered(trimmedEmail) || authDao.isIdentifierRegistered(trimmedEmail)) {
                     Result.failure(Exception("Invalid password. Please check and try again."))
                 } else {
                     Result.failure(Exception("No account found for $trimmedEmail with role ${role.name}."))

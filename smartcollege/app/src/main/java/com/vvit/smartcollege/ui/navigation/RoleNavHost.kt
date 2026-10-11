@@ -21,18 +21,9 @@ fun RoleNavHost(
     navController: NavHostController = rememberNavController(),
     authViewModel: AuthViewModel = viewModel()
 ) {
-    val currentUser by authViewModel.currentUser.collectAsState()
-
-    val initialDestination = when (currentUser?.role) {
-        UserRole.STUDENT -> Screen.StudentRoot.route
-        UserRole.TEACHER -> Screen.TeacherRoot.route
-        UserRole.ADMIN -> Screen.StudentRoot.route
-        null -> Screen.Login.route
-    }
-
     NavHost(
         navController = navController,
-        startDestination = initialDestination,
+        startDestination = Screen.Login.route,
         modifier = modifier
     ) {
         composable(Screen.Login.route) {

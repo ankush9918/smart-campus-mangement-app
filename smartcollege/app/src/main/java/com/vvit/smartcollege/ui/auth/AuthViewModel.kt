@@ -137,15 +137,11 @@ class AuthViewModel(
     }
 
     fun login(onSuccess: (UserRole) -> Unit) {
-        val emailVal = _email.value.trim()
+        val userIdentifier = _email.value.trim()
         val passVal = _password.value
 
-        if (emailVal.isBlank()) {
-            _errorMessage.value = "Please enter your College Email ID"
-            return
-        }
-        if (!emailVal.contains("@") || !emailVal.contains(".")) {
-            _errorMessage.value = "Please enter a valid email address"
+        if (userIdentifier.isBlank()) {
+            _errorMessage.value = "Please enter your Email ID"
             return
         }
         if (passVal.isBlank()) {
@@ -159,19 +155,25 @@ class AuthViewModel(
 
         viewModelScope.launch {
             try {
-                val result = authRepository.loginAsync(emailVal, passVal, role)
+                val result = authRepository.loginAsync(userIdentifier, passVal, role)
                 _isLoading.value = false
                 if (result.isSuccess) {
                     _errorMessage.value = null
                     onSuccess(role)
                 } else {
-                    _errorMessage.value = result.exceptionOrNull()?.message ?: "Login failed. Please check your credentials."
+                    _errorMessage.value = result.exceptionOrNull()?.message ?: "Invalid credentials. Please check your Email ID and password."
                 }
             } catch (e: Exception) {
                 _isLoading.value = false
-                _errorMessage.value = e.message ?: "Authentication failed."
+                _errorMessage.value = e.message ?: "Authentication failed. Please try again."
             }
         }
+    }
+
+    fun fillDemoCredentials(userId: String, pass: String) {
+        _email.value = userId
+        _password.value = pass
+        _errorMessage.value = null
     }
 
     fun signUp(onSuccess: (UserRole) -> Unit) {

@@ -53,7 +53,8 @@ fun StudentMainScreen(
             when (currentTab) {
                 "home" -> StudentDashboardScreen(
                     viewModel = viewModel,
-                    onNavigateToSection = { currentTab = it }
+                    onNavigateToSection = { currentTab = it },
+                    onLogout = onLogout
                 )
                 "attendance" -> StudentAttendanceScreen(viewModel = viewModel)
                 "timetable" -> StudentTimetableScreen(viewModel = viewModel)

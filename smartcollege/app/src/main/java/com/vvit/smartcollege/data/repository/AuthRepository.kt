@@ -126,7 +126,10 @@ class AuthRepository(
                 // Keep local fallback if network error
             }
 
-            sessionManager?.saveSession(user)
+            sessionManager?.saveSession(user, authResult.accessToken)
+            if (!authResult.accessToken.isNullOrBlank()) {
+                SupabaseApiClient.setAuthToken(authResult.accessToken)
+            }
             _currentUser.value = user
             MockDatabase.currentUser.value = user
             return@withContext Result.success(user)

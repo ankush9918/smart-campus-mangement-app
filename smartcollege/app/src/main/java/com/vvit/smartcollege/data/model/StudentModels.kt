@@ -41,8 +41,16 @@ data class StudentAssignment(
     val submittedFileName: String? = null,
     val professorName: String = "",
     val fileName: String? = null,
-    val fileUri: String? = null
+    val fileUri: String? = null,
+    val storageProvider: String = "supabase",
+    val r2Key: String? = null
 ) {
+    val isR2Storage: Boolean
+        get() = storageProvider.equals("r2", ignoreCase = true) ||
+                !r2Key.isNullOrBlank() ||
+                (fileUri?.startsWith("r2://") == true) ||
+                (fileUri?.startsWith("assignments/") == true)
+
     val cleanInstructions: String
         get() {
             val trimmed = instructions.trim()
@@ -68,8 +76,18 @@ data class StudentStudyMaterial(
     val fileType: String = "PDF",
     val downloadUrl: String = "",
     val fileName: String? = null,
-    val fileUri: String? = null
-)
+    val fileUri: String? = null,
+    val storageProvider: String = "supabase",
+    val r2Key: String? = null
+) {
+    val isR2Storage: Boolean
+        get() = storageProvider.equals("r2", ignoreCase = true) ||
+                !r2Key.isNullOrBlank() ||
+                (fileUri?.startsWith("r2://") == true) ||
+                (downloadUrl.startsWith("r2://")) ||
+                (fileUri?.startsWith("study-materials/") == true) ||
+                (downloadUrl.startsWith("study-materials/"))
+}
 
 data class GradeItem(
     val subjectName: String,

@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.sp
 import com.vvit.smartcollege.ui.components.*
 import com.vvit.smartcollege.ui.theme.*
 import java.util.Locale
+import kotlinx.coroutines.launch
 
 @Composable
 fun TeacherAcademicsDeskScreen(
@@ -38,6 +39,7 @@ fun TeacherAcademicsDeskScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     val studyMaterials by viewModel.studyMaterials.collectAsState()
     val assignedSubjects by viewModel.assignedSubjects.collectAsState()
 
@@ -202,12 +204,26 @@ fun TeacherAcademicsDeskScreen(
                                 .clickable {
                                     val uriStr = material.fileUri ?: material.downloadUrl
                                     if (!uriStr.isNullOrBlank()) {
-                                        try {
-                                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(uriStr)).apply {
-                                                flags = android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                                        if (uriStr.contains(".supabase.co/storage/") || uriStr.startsWith("content://")) {
+                                            try {
+                                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(uriStr)).apply {
+                                                    flags = android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                                                }
+                                                context.startActivity(intent)
+                                            } catch (_: Exception) {}
+                                        } else {
+                                            coroutineScope.launch {
+                                                val signed = com.vvit.smartcollege.data.remote.SupabaseApiClient.resolveDownloadUrl(uriStr, material.r2Key)
+                                                if (!signed.isNullOrBlank()) {
+                                                    try {
+                                                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(signed)).apply {
+                                                            flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                                                        }
+                                                        context.startActivity(intent)
+                                                    } catch (_: Exception) {}
+                                                }
                                             }
-                                            context.startActivity(intent)
-                                        } catch (_: Exception) {}
+                                        }
                                     }
                                 },
                             shape = RoundedCornerShape(10.dp),

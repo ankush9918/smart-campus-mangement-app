@@ -266,9 +266,116 @@ class TeacherRepository(
         MockDatabase.teacherAttendanceRoster.value = roster
     }
 
+    suspend fun createAssignmentAsync(
+        title: String,
+        instructions: String,
+        dueDate: String,
+        subjectName: String = _assignedSubjects.value.firstOrNull() ?: "Computer Organization & Architecture (BCS-302)",
+        fileName: String? = null,
+        fileUri: String? = null,
+        fileBytes: ByteArray? = null,
+        mimeType: String = "application/octet-stream",
+        maxMarks: Int = 100
+    ): Result<StudentAssignment> = withContext(Dispatchers.IO) {
+        try {
+            var bytes = fileBytes
+            if (bytes == null && !fileUri.isNullOrBlank() && fileUri.startsWith("content://")) {
+                try {
+                    val uri = Uri.parse(fileUri)
+                    bytes = DatabaseProvider.appContext?.contentResolver?.openInputStream(uri)?.use { it.readBytes() }
+                } catch (e: Exception) {
+                    android.util.Log.w("TeacherRepository", "Failed to resolve file bytes from content URI: ${e.message}")
+                }
+            }
+
+            val hasFile = bytes != null && !fileName.isNullOrBlank()
+            var r2Key: String? = null
+            var remoteFileUrl: String? = null
+            var storageProvider = "supabase"
+
+            if (hasFile) {
+                // Step 1: Request presigned PUT upload URL from Supabase Edge Function
+                val presignedResp = SupabaseApiClient.getR2UploadPresignedUrl(
+                    fileName = fileName!!,
+                    fileType = "assignment",
+                    mimeType = mimeType
+                ) ?: return@withContext Result.failure(
+                    Exception("Failed to obtain upload authorization URL from server. Check your login session.")
+                )
+
+                // Step 2: Upload actual file bytes to Cloudflare R2 via HTTP PUT
+                val uploadOk = SupabaseApiClient.uploadFileToR2(
+                    uploadUrl = presignedResp.uploadUrl,
+                    fileBytes = bytes!!,
+                    mimeType = mimeType
+                )
+                if (!uploadOk) {
+                    return@withContext Result.failure(
+                        Exception("Failed to upload file to Cloudflare R2. Please check your network and retry.")
+                    )
+                }
+
+                // Step 3: Call complete-upload to verify object existence in Cloudflare R2 bucket
+                val verifyResp = SupabaseApiClient.completeR2Upload(presignedResp.objectKey)
+                if (verifyResp == null || !verifyResp.verified) {
+                    return@withContext Result.failure(
+                        Exception("Cloudflare R2 verification failed: uploaded file could not be verified in the storage bucket.")
+                    )
+                }
+
+                r2Key = presignedResp.objectKey
+                remoteFileUrl = "r2://${presignedResp.objectKey}"
+                storageProvider = "r2"
+                android.util.Log.d("TeacherRepository", "Assignment file verified in Cloudflare R2: $remoteFileUrl")
+            }
+
+            val canonicalSub = MasterSubjectRegistry.normalize(subjectName).ifBlank { subjectName }
+            val newAsg = StudentAssignment(
+                id = "asg_${System.currentTimeMillis()}",
+                subjectName = canonicalSub,
+                title = title,
+                instructions = instructions,
+                dueDate = dueDate,
+                status = AssignmentStatus.PENDING,
+                maxMarks = maxMarks,
+                professorName = _teacherProfile.value.name,
+                fileName = fileName,
+                fileUri = remoteFileUrl ?: (if (fileUri?.startsWith("content://") == true) null else fileUri),
+                storageProvider = storageProvider,
+                r2Key = r2Key
+            )
+
+            // Step 4: Save metadata to Supabase Database
+            val dbSuccess = SupabaseApiClient.postAssignment(
+                assignment = newAsg,
+                department = _teacherProfile.value.department,
+                createdBy = _teacherProfile.value.name
+            )
+            if (!dbSuccess && hasFile) {
+                return@withContext Result.failure(
+                    Exception("Failed to save assignment metadata in database. Please verify backend connection.")
+                )
+            }
+
+            // Step 5: Save in local Room DAO and UI state
+            teacherDao?.createAssignment(newAsg)
+            DatabaseProvider.studentDao?.saveAssignments(listOf(newAsg))
+            val current = _assignments.value.toMutableList()
+            current.removeAll { it.id == newAsg.id }
+            current.add(0, newAsg)
+            _assignments.value = current
+            MockDatabase.studentAssignments.value = current
+
+            Result.success(newAsg)
+        } catch (e: Exception) {
+            android.util.Log.e("TeacherRepository", "Error in createAssignmentAsync", e)
+            Result.failure(e)
+        }
+    }
+
     fun createAssignment(
-        title: String, 
-        instructions: String, 
+        title: String,
+        instructions: String,
         dueDate: String,
         subjectName: String = _assignedSubjects.value.firstOrNull() ?: "Computer Organization & Architecture (BCS-302)",
         fileName: String? = null,
@@ -298,52 +405,132 @@ class TeacherRepository(
         _assignments.value = current
         MockDatabase.studentAssignments.value = current
 
-        // Sync assignment to Supabase in background, uploading real file to Storage first
         CoroutineScope(Dispatchers.IO).launch {
-            try {
-                var bytes = fileBytes
-                if (bytes == null && !fileUri.isNullOrBlank() && fileUri.startsWith("content://")) {
-                    try {
-                        val uri = Uri.parse(fileUri)
-                        bytes = DatabaseProvider.appContext?.contentResolver?.openInputStream(uri)?.use { it.readBytes() }
-                    } catch (_: Exception) {}
-                }
+            createAssignmentAsync(
+                title = title,
+                instructions = instructions,
+                dueDate = dueDate,
+                subjectName = subjectName,
+                fileName = fileName,
+                fileUri = fileUri,
+                fileBytes = fileBytes,
+                mimeType = mimeType,
+                maxMarks = maxMarks
+            )
+        }
+    }
 
-                var remoteFileUrl: String? = null
-                if (bytes != null && !fileName.isNullOrBlank()) {
-                    val safeName = "${System.currentTimeMillis()}_${fileName.replace("[^a-zA-Z0-9._-]".toRegex(), "_")}"
-                    remoteFileUrl = SupabaseApiClient.uploadFileToStorage(
-                        bucket = "assignments",
-                        fileName = safeName,
-                        fileBytes = bytes,
-                        mimeType = mimeType
+    suspend fun uploadStudyMaterialAsync(
+        title: String,
+        subjectName: String,
+        fileName: String? = null,
+        fileUri: String? = null,
+        fileBytes: ByteArray? = null,
+        mimeType: String = "application/pdf",
+        fileSize: String = "2.4 MB",
+        fileType: String = "PDF"
+    ): Result<StudentStudyMaterial> = withContext(Dispatchers.IO) {
+        try {
+            var bytes = fileBytes
+            if (bytes == null && !fileUri.isNullOrBlank() && fileUri.startsWith("content://")) {
+                try {
+                    val uri = Uri.parse(fileUri)
+                    bytes = DatabaseProvider.appContext?.contentResolver?.openInputStream(uri)?.use { it.readBytes() }
+                } catch (e: Exception) {
+                    android.util.Log.w("TeacherRepository", "Failed to resolve file bytes from content URI: ${e.message}")
+                }
+            }
+
+            val hasFile = bytes != null && !fileName.isNullOrBlank()
+            var r2Key: String? = null
+            var remoteFileUrl: String? = null
+            var storageProvider = "supabase"
+
+            if (hasFile) {
+                // Step 1: Request presigned PUT upload URL from Supabase Edge Function
+                val presignedResp = SupabaseApiClient.getR2UploadPresignedUrl(
+                    fileName = fileName!!,
+                    fileType = "study-material",
+                    mimeType = mimeType
+                ) ?: return@withContext Result.failure(
+                    Exception("Failed to obtain upload authorization URL from server. Check your login session.")
+                )
+
+                // Step 2: Upload actual file bytes to Cloudflare R2 via HTTP PUT
+                val uploadOk = SupabaseApiClient.uploadFileToR2(
+                    uploadUrl = presignedResp.uploadUrl,
+                    fileBytes = bytes!!,
+                    mimeType = mimeType
+                )
+                if (!uploadOk) {
+                    return@withContext Result.failure(
+                        Exception("Failed to upload file to Cloudflare R2. Please check your network and retry.")
                     )
                 }
 
-                // If remote upload succeeded, use the public cloud URL.
-                // If it failed or there is no remote file, ensure we NEVER send local content:// URIs to Supabase.
-                val cloudFileUri = remoteFileUrl ?: (if (newAsg.fileUri?.startsWith("content://") == true) null else newAsg.fileUri)
-
-                val asgToSave = if (cloudFileUri != newAsg.fileUri) {
-                    val updatedAsg = newAsg.copy(fileUri = cloudFileUri)
-                    teacherDao?.createAssignment(updatedAsg)
-                    DatabaseProvider.studentDao?.saveAssignments(listOf(updatedAsg))
-                    val updatedList = _assignments.value.map { if (it.id == newAsg.id) updatedAsg else it }
-                    _assignments.value = updatedList
-                    MockDatabase.studentAssignments.value = updatedList
-                    updatedAsg
-                } else {
-                    newAsg
+                // Step 3: Call complete-upload to verify object existence in Cloudflare R2 bucket
+                val verifyResp = SupabaseApiClient.completeR2Upload(presignedResp.objectKey)
+                if (verifyResp == null || !verifyResp.verified) {
+                    return@withContext Result.failure(
+                        Exception("Cloudflare R2 verification failed: uploaded file could not be verified in the storage bucket.")
+                    )
                 }
 
-                SupabaseApiClient.postAssignment(
-                    assignment = asgToSave,
-                    department = _teacherProfile.value.department,
-                    createdBy = _teacherProfile.value.name
-                )
-            } catch (e: Exception) {
-                // Silently ignore background network errors
+                r2Key = presignedResp.objectKey
+                remoteFileUrl = "r2://${presignedResp.objectKey}"
+                storageProvider = "r2"
+                android.util.Log.d("TeacherRepository", "Study material file verified in Cloudflare R2: $remoteFileUrl")
             }
+
+            val dateFormat = java.text.SimpleDateFormat("MMM dd, yyyy", java.util.Locale.getDefault())
+            val dateStr = dateFormat.format(java.util.Date())
+            val canonicalSub = MasterSubjectRegistry.normalize(subjectName)
+            val determinedFileType = when {
+                fileType.isNotBlank() && fileType != "PDF" -> fileType.uppercase()
+                fileName != null && fileName.contains(".") -> fileName.substringAfterLast(".").uppercase()
+                else -> "PDF"
+            }
+
+            val cloudUrl = remoteFileUrl ?: (if (fileUri?.startsWith("content://") == true) "" else (fileUri ?: ""))
+            val newMat = StudentStudyMaterial(
+                id = UUID.randomUUID().toString(),
+                title = title,
+                subjectName = canonicalSub,
+                sharedBy = _teacherProfile.value.name.ifBlank { "Professor" },
+                sharedDate = dateStr,
+                fileSize = fileSize,
+                fileType = determinedFileType,
+                downloadUrl = cloudUrl,
+                fileName = fileName ?: title,
+                fileUri = cloudUrl,
+                storageProvider = storageProvider,
+                r2Key = r2Key
+            )
+
+            // Step 4: Save metadata to Supabase Database
+            val dbSuccess = SupabaseApiClient.postStudyMaterial(
+                material = newMat,
+                department = _teacherProfile.value.department
+            )
+            if (!dbSuccess && hasFile) {
+                return@withContext Result.failure(
+                    Exception("Failed to save study material metadata in database. Please verify backend connection.")
+                )
+            }
+
+            // Step 5: Save in local Room DAO and UI state
+            teacherDao?.uploadStudyMaterial(newMat)
+            DatabaseProvider.studentDao?.saveStudyMaterials(listOf(newMat))
+            val current = (teacherDao?.getStudyMaterials() ?: DatabaseProvider.studentDao?.getStudyMaterials() ?: _studyMaterials.value).toMutableList()
+            current.removeAll { it.id == newMat.id }
+            current.add(0, newMat)
+            _studyMaterials.value = current
+            MockDatabase.studyMaterials.value = current
+
+            Result.success(newMat)
+        } catch (e: Exception) {
+            android.util.Log.e("TeacherRepository", "Error in uploadStudyMaterialAsync", e)
+            Result.failure(e)
         }
     }
 
@@ -381,55 +568,22 @@ class TeacherRepository(
         teacherDao?.uploadStudyMaterial(newMat)
         DatabaseProvider.studentDao?.saveStudyMaterials(listOf(newMat))
         val current = (teacherDao?.getStudyMaterials() ?: DatabaseProvider.studentDao?.getStudyMaterials() ?: _studyMaterials.value).toMutableList()
-        if (!current.any { it.id == newMat.id }) {
-            current.add(0, newMat)
-        }
+        current.removeAll { it.id == newMat.id }
+        current.add(0, newMat)
         _studyMaterials.value = current
         MockDatabase.studyMaterials.value = current
 
-        // Sync study material to Supabase in background, uploading real file to Storage first
         CoroutineScope(Dispatchers.IO).launch {
-            try {
-                var bytes = fileBytes
-                if (bytes == null && !fileUri.isNullOrBlank() && fileUri.startsWith("content://")) {
-                    try {
-                        val uri = Uri.parse(fileUri)
-                        bytes = DatabaseProvider.appContext?.contentResolver?.openInputStream(uri)?.use { it.readBytes() }
-                    } catch (_: Exception) {}
-                }
-
-                var remoteFileUrl: String? = null
-                if (bytes != null && !fileName.isNullOrBlank()) {
-                    val safeName = "${System.currentTimeMillis()}_${fileName.replace("[^a-zA-Z0-9._-]".toRegex(), "_")}"
-                    remoteFileUrl = SupabaseApiClient.uploadFileToStorage(
-                        bucket = "study-materials",
-                        fileName = safeName,
-                        fileBytes = bytes,
-                        mimeType = mimeType
-                    )
-                }
-
-                val cloudFileUri = remoteFileUrl ?: (if (newMat.fileUri?.startsWith("content://") == true) "" else (newMat.fileUri ?: ""))
-
-                val matToSave = if (cloudFileUri != newMat.fileUri) {
-                    val updatedMat = newMat.copy(fileUri = cloudFileUri, downloadUrl = cloudFileUri)
-                    teacherDao?.uploadStudyMaterial(updatedMat)
-                    DatabaseProvider.studentDao?.saveStudyMaterials(listOf(updatedMat))
-                    val updatedList = _studyMaterials.value.map { if (it.id == newMat.id) updatedMat else it }
-                    _studyMaterials.value = updatedList
-                    MockDatabase.studyMaterials.value = updatedList
-                    updatedMat
-                } else {
-                    newMat
-                }
-
-                SupabaseApiClient.postStudyMaterial(
-                    material = matToSave,
-                    department = _teacherProfile.value.department
-                )
-            } catch (e: Exception) {
-                // Silently ignore background network errors
-            }
+            uploadStudyMaterialAsync(
+                title = title,
+                subjectName = subjectName,
+                fileName = fileName,
+                fileUri = fileUri,
+                fileBytes = fileBytes,
+                mimeType = mimeType,
+                fileSize = fileSize,
+                fileType = fileType
+            )
         }
     }
 

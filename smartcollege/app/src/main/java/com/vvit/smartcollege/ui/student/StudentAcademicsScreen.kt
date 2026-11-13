@@ -24,6 +24,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 import com.vvit.smartcollege.data.model.AssignmentStatus
 import com.vvit.smartcollege.data.model.StudentAssignment
 import com.vvit.smartcollege.data.model.StudentStudyMaterial
@@ -36,6 +37,7 @@ fun StudentAcademicsScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     val assignments by viewModel.assignments.collectAsState()
     val studyMaterials by viewModel.studyMaterials.collectAsState()
 
@@ -212,34 +214,7 @@ fun StudentAcademicsScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        val uriStr = asg.fileUri
-                        if (!uriStr.isNullOrBlank()) {
-                            if (uriStr.startsWith("content://")) {
-                                Toast.makeText(
-                                    context,
-                                    "This file was uploaded from an earlier local build. Please ask professor to re-upload to cloud storage.",
-                                    Toast.LENGTH_LONG
-                                ).show()
-                            } else {
-                                try {
-                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(uriStr)).apply {
-                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                    }
-                                    context.startActivity(intent)
-                                } catch (_: Exception) {
-                                    try {
-                                        val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(uriStr)).apply {
-                                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                        }
-                                        context.startActivity(browserIntent)
-                                    } catch (e2: Exception) {
-                                        Toast.makeText(context, "Could not open document: ${e2.message}", Toast.LENGTH_SHORT).show()
-                                    }
-                                }
-                            }
-                        } else {
-                            Toast.makeText(context, "Document URL not available.", Toast.LENGTH_SHORT).show()
-                        }
+                        openDocumentUrl(context, coroutineScope, asg.fileUri, asg.r2Key)
                         viewingAssignmentFile = null
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = PrimaryNavy),
@@ -311,34 +286,7 @@ fun StudentAcademicsScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        val uriStr = mat.fileUri ?: mat.downloadUrl
-                        if (!uriStr.isNullOrBlank()) {
-                            if (uriStr.startsWith("content://")) {
-                                Toast.makeText(
-                                    context,
-                                    "This material was uploaded from an earlier local build. Please ask professor to re-upload to cloud storage.",
-                                    Toast.LENGTH_LONG
-                                ).show()
-                            } else {
-                                try {
-                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(uriStr)).apply {
-                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                    }
-                                    context.startActivity(intent)
-                                } catch (_: Exception) {
-                                    try {
-                                        val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(uriStr)).apply {
-                                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                        }
-                                        context.startActivity(browserIntent)
-                                    } catch (e2: Exception) {
-                                        Toast.makeText(context, "Could not open material: ${e2.message}", Toast.LENGTH_SHORT).show()
-                                    }
-                                }
-                            }
-                        } else {
-                            Toast.makeText(context, "Material URL not available.", Toast.LENGTH_SHORT).show()
-                        }
+                        openDocumentUrl(context, coroutineScope, mat.fileUri ?: mat.downloadUrl, mat.r2Key)
                         viewingStudyMaterial = null
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = PrimaryNavy),
@@ -574,6 +522,76 @@ fun StudyMaterialCard(
                     tint = PrimaryNavy
                 )
             }
+        }
+    }
+}
+
+private fun openDocumentUrl(
+    context: android.content.Context,
+    coroutineScope: kotlinx.coroutines.CoroutineScope,
+    rawUrl: String?,
+    r2Key: String? = null
+) {
+    if (rawUrl.isNullOrBlank() && r2Key.isNullOrBlank()) {
+        Toast.makeText(context, "Document URL not available.", Toast.LENGTH_SHORT).show()
+        return
+    }
+
+    val uriStr = rawUrl ?: ""
+    if (uriStr.startsWith("content://")) {
+        Toast.makeText(
+            context,
+            "This file was uploaded from an earlier local build. Please ask professor to re-upload to cloud storage.",
+            Toast.LENGTH_LONG
+        ).show()
+        return
+    }
+
+    val isLegacySupabase = uriStr.contains(".supabase.co/storage/")
+    val isR2 = !r2Key.isNullOrBlank() || uriStr.startsWith("r2://") || uriStr.startsWith("assignments/") || uriStr.startsWith("study-materials/")
+
+    // Fast-path: Legacy Supabase Storage URLs or external web links open directly (backward compatibility)
+    if (isLegacySupabase || (!isR2 && (uriStr.startsWith("http://") || uriStr.startsWith("https://")))) {
+        try {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(uriStr)).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            context.startActivity(intent)
+        } catch (_: Exception) {
+            try {
+                val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(uriStr)).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                context.startActivity(browserIntent)
+            } catch (e2: Exception) {
+                Toast.makeText(context, "Could not open document: ${e2.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+        return
+    }
+
+    // Cloudflare R2 path: Resolve temporary presigned download URL from Edge Function
+    coroutineScope.launch {
+        Toast.makeText(context, "Fetching secure link from Cloudflare R2...", Toast.LENGTH_SHORT).show()
+        val signedUrl = com.vvit.smartcollege.data.remote.SupabaseApiClient.resolveDownloadUrl(uriStr, r2Key)
+        if (!signedUrl.isNullOrBlank()) {
+            try {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(signedUrl)).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                context.startActivity(intent)
+            } catch (_: Exception) {
+                try {
+                    val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(signedUrl)).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    }
+                    context.startActivity(browserIntent)
+                } catch (e2: Exception) {
+                    Toast.makeText(context, "Could not open document: ${e2.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        } else {
+            Toast.makeText(context, "Failed to load document: Link expired or unauthorized.", Toast.LENGTH_SHORT).show()
         }
     }
 }

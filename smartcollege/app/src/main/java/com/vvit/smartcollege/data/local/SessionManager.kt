@@ -18,6 +18,7 @@ class SessionManager(context: Context) {
         private const val KEY_USER_ROLE = "user_role"
         private const val KEY_USER_IDENTIFIER = "user_identifier"
         private const val KEY_USER_AVATAR = "user_avatar"
+        private const val KEY_ACCESS_TOKEN = "access_token"
 
         @Volatile
         private var instance: SessionManager? = null
@@ -31,7 +32,7 @@ class SessionManager(context: Context) {
         fun get(): SessionManager? = instance
     }
 
-    fun saveSession(user: User) {
+    fun saveSession(user: User, accessToken: String? = null) {
         prefs.edit().apply {
             putBoolean(KEY_IS_LOGGED_IN, true)
             putString(KEY_USER_ID, user.id)
@@ -40,8 +41,19 @@ class SessionManager(context: Context) {
             putString(KEY_USER_ROLE, user.role.name)
             putString(KEY_USER_IDENTIFIER, user.identifier)
             putString(KEY_USER_AVATAR, user.avatarUrl)
+            if (!accessToken.isNullOrBlank()) {
+                putString(KEY_ACCESS_TOKEN, accessToken)
+            }
             apply()
         }
+    }
+
+    fun saveAccessToken(token: String) {
+        prefs.edit().putString(KEY_ACCESS_TOKEN, token).apply()
+    }
+
+    fun getAccessToken(): String? {
+        return prefs.getString(KEY_ACCESS_TOKEN, null)
     }
 
     fun getSession(): User? {

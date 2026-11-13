@@ -171,18 +171,28 @@ class TeacherViewModel(
             _toastMessage.value = "Please select a submission deadline."
             return
         }
-        teacherRepository.createAssignment(
-            title = title.trim(),
-            instructions = instructions.trim(),
-            dueDate = dueDate.trim(),
-            subjectName = subjectName,
-            fileName = fileName,
-            fileUri = fileUri,
-            fileBytes = fileBytes,
-            mimeType = mimeType,
-            maxMarks = maxMarks
-        )
-        _toastMessage.value = "Assignment '$title' uploaded successfully!"
+        viewModelScope.launch {
+            if (fileBytes != null || !fileName.isNullOrBlank()) {
+                _toastMessage.value = "Uploading assignment to Cloudflare R2..."
+            }
+            val result = teacherRepository.createAssignmentAsync(
+                title = title.trim(),
+                instructions = instructions.trim(),
+                dueDate = dueDate.trim(),
+                subjectName = subjectName,
+                fileName = fileName,
+                fileUri = fileUri,
+                fileBytes = fileBytes,
+                mimeType = mimeType,
+                maxMarks = maxMarks
+            )
+            if (result.isSuccess) {
+                _toastMessage.value = "Assignment '$title' uploaded successfully!"
+            } else {
+                val err = result.exceptionOrNull()?.message ?: "Upload failed"
+                _toastMessage.value = "Upload failed: $err"
+            }
+        }
     }
 
     fun uploadMaterial(
@@ -199,17 +209,27 @@ class TeacherViewModel(
             _toastMessage.value = "Please enter a study material title."
             return
         }
-        teacherRepository.uploadStudyMaterial(
-            title = title.trim(),
-            subjectName = subjectName,
-            fileName = fileName,
-            fileUri = fileUri,
-            fileBytes = fileBytes,
-            mimeType = mimeType,
-            fileSize = fileSize,
-            fileType = fileType
-        )
-        _toastMessage.value = "Material '$title' shared with students!"
+        viewModelScope.launch {
+            if (fileBytes != null || !fileName.isNullOrBlank()) {
+                _toastMessage.value = "Uploading study material to Cloudflare R2..."
+            }
+            val result = teacherRepository.uploadStudyMaterialAsync(
+                title = title.trim(),
+                subjectName = subjectName,
+                fileName = fileName,
+                fileUri = fileUri,
+                fileBytes = fileBytes,
+                mimeType = mimeType,
+                fileSize = fileSize,
+                fileType = fileType
+            )
+            if (result.isSuccess) {
+                _toastMessage.value = "Material '$title' shared with students!"
+            } else {
+                val err = result.exceptionOrNull()?.message ?: "Upload failed"
+                _toastMessage.value = "Upload failed: $err"
+            }
+        }
     }
 
     fun remindStudent(studentId: String) {

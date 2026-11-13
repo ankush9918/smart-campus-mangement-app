@@ -32,6 +32,7 @@ import com.vvit.smartcollege.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
+import kotlinx.coroutines.launch
 
 @Composable
 fun TeacherAssignmentsHubScreen(
@@ -39,6 +40,7 @@ fun TeacherAssignmentsHubScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     var activeTab by remember { mutableStateOf(0) } // 0: Create, 1: Uploaded Tasks
 
     val assignedSubjects by viewModel.assignedSubjects.collectAsState()
@@ -477,12 +479,27 @@ fun TeacherAssignmentsHubScreen(
                                             border = BorderStroke(1.dp, CardBorder),
                                             modifier = if (!asg.fileUri.isNullOrBlank()) {
                                                 Modifier.clickable {
-                                                    try {
-                                                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(asg.fileUri)).apply {
-                                                            flags = android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                                                    val raw = asg.fileUri ?: ""
+                                                    if (raw.contains(".supabase.co/storage/") || raw.startsWith("content://")) {
+                                                        try {
+                                                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(raw)).apply {
+                                                                flags = android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                                                            }
+                                                            context.startActivity(intent)
+                                                        } catch (_: Exception) {}
+                                                    } else {
+                                                        coroutineScope.launch {
+                                                            val signed = com.vvit.smartcollege.data.remote.SupabaseApiClient.resolveDownloadUrl(raw, asg.r2Key)
+                                                            if (!signed.isNullOrBlank()) {
+                                                                try {
+                                                                    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(signed)).apply {
+                                                                        flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                                                                    }
+                                                                    context.startActivity(intent)
+                                                                } catch (_: Exception) {}
+                                                            }
                                                         }
-                                                        context.startActivity(intent)
-                                                    } catch (_: Exception) {}
+                                                    }
                                                 }
                                             } else Modifier
                                         ) {

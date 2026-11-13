@@ -31,6 +31,21 @@ object SupabaseApiClient {
     const val BASE_URL = "https://$PROJECT_ID.supabase.co/rest/v1"
     const val AUTH_URL = "https://$PROJECT_ID.supabase.co/auth/v1"
     const val PUBLISHABLE_KEY = "sb_publishable_CsQmrZ6ejrBeu6sQlmQX7Q_UoEoomC6"
+    const val FUNCTIONS_URL = "https://$PROJECT_ID.supabase.co/functions/v1"
+
+    @Volatile
+    private var currentAuthToken: String? = null
+
+    fun setAuthToken(token: String?) {
+        currentAuthToken = token
+    }
+
+    fun getAuthToken(): String {
+        return currentAuthToken
+            ?: com.vvit.smartcollege.data.local.DatabaseProvider.sessionManager?.getAccessToken()
+            ?: com.vvit.smartcollege.data.local.SessionManager.get()?.getAccessToken()
+            ?: PUBLISHABLE_KEY
+    }
 
     private fun openConnection(endpoint: String, method: String = "GET", timeoutMs: Int = 4000): HttpURLConnection {
         val fullUrl = "$BASE_URL$endpoint"
@@ -69,7 +84,8 @@ object SupabaseApiClient {
                 reader.close()
                 response
             } else {
-                Log.d(TAG, "Request to $endpoint returned HTTP $code")
+                val err = conn.errorStream?.bufferedReader()?.use { it.readText() }
+                Log.w(TAG, "Request to $endpoint returned HTTP $code: $err")
                 null
             }
         } catch (e: Exception) {
@@ -712,6 +728,21 @@ object SupabaseApiClient {
                         continue
                     }
 
+                    val fn = if (obj.has("file_name") && !obj.isNull("file_name")) obj.optString("file_name", "").ifBlank { null } else null
+                    val fu = if (obj.has("file_url") && !obj.isNull("file_url")) obj.optString("file_url", "").ifBlank { null } else null
+                    val rawProvider = obj.optString("storage_provider", "").ifBlank { null }
+                    val rawR2Key = obj.optString("r2_key", "").ifBlank { null }
+                    val isR2 = (rawProvider?.equals("r2", ignoreCase = true) == true) ||
+                            !rawR2Key.isNullOrBlank() ||
+                            (fu?.startsWith("r2://") == true) ||
+                            (fu?.startsWith("assignments/") == true)
+                    val provider = if (isR2) "r2" else "supabase"
+                    val r2Key = rawR2Key ?: if (fu?.startsWith("r2://") == true) {
+                        fu.removePrefix("r2://").removePrefix("college-erp-files/")
+                    } else if (fu?.startsWith("assignments/") == true) {
+                        fu
+                    } else null
+
                     list.add(
                         StudentAssignment(
                             id = obj.optString("id", "asg_${System.currentTimeMillis()}_$i"),
@@ -722,8 +753,10 @@ object SupabaseApiClient {
                             status = AssignmentStatus.PENDING,
                             maxMarks = obj.optInt("max_marks", 100),
                             professorName = obj.optString("created_by", ""),
-                            fileName = if (obj.has("file_name") && !obj.isNull("file_name")) obj.optString("file_name", "").ifBlank { null } else null,
-                            fileUri = if (obj.has("file_url") && !obj.isNull("file_url")) obj.optString("file_url", "").ifBlank { null } else null
+                            fileName = fn,
+                            fileUri = fu,
+                            storageProvider = provider,
+                            r2Key = r2Key
                         )
                     )
                 }
@@ -750,6 +783,8 @@ object SupabaseApiClient {
                     var fileName: String? = null
                     var fileUri: String? = null
                     var prof = obj.optString("published_by", "")
+                    var storageProvider = "supabase"
+                    var r2Key: String? = null
 
                     try {
                         val meta = JSONObject(descRaw)
@@ -763,6 +798,12 @@ object SupabaseApiClient {
                         if (fu.isNotBlank()) fileUri = fu
                         val p = meta.optString("professor_name", "")
                         if (p.isNotBlank()) prof = p
+                        val sp = meta.optString("storage_provider", "")
+                        val rk = meta.optString("r2_key", "")
+                        if (sp.equals("r2", ignoreCase = true) || rk.isNotBlank() || fileUri?.startsWith("r2://") == true || fileUri?.startsWith("assignments/") == true) {
+                            storageProvider = "r2"
+                            r2Key = if (rk.isNotBlank()) rk else fileUri?.removePrefix("r2://")?.removePrefix("college-erp-files/")
+                        }
                     } catch (_: Exception) {}
 
                     list.add(
@@ -776,7 +817,9 @@ object SupabaseApiClient {
                             maxMarks = maxMarks,
                             professorName = prof,
                             fileName = fileName,
-                            fileUri = fileUri
+                            fileUri = fileUri,
+                            storageProvider = storageProvider,
+                            r2Key = r2Key
                         )
                     )
                 }
@@ -817,6 +860,21 @@ object SupabaseApiClient {
                 if (!assignment.fileUri.isNullOrBlank()) {
                     put("file_url", assignment.fileUri)
                 }
+                val isR2 = assignment.isR2Storage ||
+                        assignment.storageProvider.equals("r2", ignoreCase = true) ||
+                        !assignment.r2Key.isNullOrBlank() ||
+                        assignment.fileUri?.startsWith("r2://") == true ||
+                        assignment.fileUri?.startsWith("assignments/") == true
+                val provider = if (isR2) "r2" else assignment.storageProvider
+                put("storage_provider", provider)
+                val key = assignment.r2Key ?: if (assignment.fileUri?.startsWith("r2://") == true) {
+                    assignment.fileUri?.removePrefix("r2://")?.removePrefix("college-erp-files/")
+                } else if (assignment.fileUri?.startsWith("assignments/") == true) {
+                    assignment.fileUri
+                } else null
+                if (!key.isNullOrBlank()) {
+                    put("r2_key", key)
+                }
             }
             val res = executeRequest("/assignments", "POST", postJson.toString())
             if (res != null) success = true
@@ -826,6 +884,18 @@ object SupabaseApiClient {
 
         // 2. Also mirror into public.circulars table for real-time cloud accessibility
         try {
+            val isR2 = assignment.isR2Storage ||
+                    assignment.storageProvider.equals("r2", ignoreCase = true) ||
+                    !assignment.r2Key.isNullOrBlank() ||
+                    assignment.fileUri?.startsWith("r2://") == true ||
+                    assignment.fileUri?.startsWith("assignments/") == true
+            val provider = if (isR2) "r2" else assignment.storageProvider
+            val key = assignment.r2Key ?: if (assignment.fileUri?.startsWith("r2://") == true) {
+                assignment.fileUri?.removePrefix("r2://")?.removePrefix("college-erp-files/")
+            } else if (assignment.fileUri?.startsWith("assignments/") == true) {
+                assignment.fileUri
+            } else null
+
             val descJson = JSONObject().apply {
                 put("instructions", assignment.instructions)
                 put("subject", assignment.subjectName)
@@ -833,6 +903,10 @@ object SupabaseApiClient {
                 put("max_marks", assignment.maxMarks)
                 put("file_name", assignment.fileName ?: "")
                 put("file_url", assignment.fileUri ?: "")
+                put("storage_provider", provider)
+                if (!key.isNullOrBlank()) {
+                    put("r2_key", key)
+                }
                 put("professor_name", createdBy ?: assignment.professorName.ifBlank { "Faculty Member" })
             }
             val circJson = JSONObject().apply {
@@ -883,6 +957,22 @@ object SupabaseApiClient {
                     val fn = if (obj.has("file_name") && !obj.isNull("file_name")) obj.optString("file_name", "").ifBlank { null } else null
                     val fu = if (obj.has("file_url") && !obj.isNull("file_url")) obj.optString("file_url", "").ifBlank { null } else null
                     val dUrl = obj.optString("download_url", fu ?: "")
+                    val rawProvider = obj.optString("storage_provider", "").ifBlank { null }
+                    val rawR2Key = obj.optString("r2_key", "").ifBlank { null }
+                    val isR2 = (rawProvider?.equals("r2", ignoreCase = true) == true) ||
+                            !rawR2Key.isNullOrBlank() ||
+                            (dUrl.startsWith("r2://")) ||
+                            (fu?.startsWith("r2://") == true) ||
+                            (dUrl.startsWith("study-materials/")) ||
+                            (fu?.startsWith("study-materials/") == true)
+                    val provider = if (isR2) "r2" else "supabase"
+                    val r2Key = rawR2Key ?: if (dUrl.startsWith("r2://")) {
+                        dUrl.removePrefix("r2://").removePrefix("college-erp-files/")
+                    } else if (fu?.startsWith("r2://") == true) {
+                        fu.removePrefix("r2://").removePrefix("college-erp-files/")
+                    } else if (dUrl.startsWith("study-materials/")) {
+                        dUrl
+                    } else null
 
                     list.add(
                         StudentStudyMaterial(
@@ -895,7 +985,9 @@ object SupabaseApiClient {
                             fileType = obj.optString("file_type", "PDF"),
                             downloadUrl = dUrl,
                             fileName = fn,
-                            fileUri = fu ?: dUrl.ifBlank { null }
+                            fileUri = fu ?: dUrl.ifBlank { null },
+                            storageProvider = provider,
+                            r2Key = r2Key
                         )
                     )
                 }
@@ -923,6 +1015,8 @@ object SupabaseApiClient {
                     var fileType = "PDF"
                     var fileName: String? = null
                     var fileUri: String? = null
+                    var storageProvider = "supabase"
+                    var r2Key: String? = null
 
                     try {
                         val meta = JSONObject(descRaw)
@@ -936,6 +1030,12 @@ object SupabaseApiClient {
                         if (fn.isNotBlank()) fileName = fn
                         val fu = meta.optString("file_url", "")
                         if (fu.isNotBlank()) fileUri = fu
+                        val sp = meta.optString("storage_provider", "")
+                        val rk = meta.optString("r2_key", "")
+                        if (sp.equals("r2", ignoreCase = true) || rk.isNotBlank() || fileUri?.startsWith("r2://") == true || fileUri?.startsWith("study-materials/") == true) {
+                            storageProvider = "r2"
+                            r2Key = if (rk.isNotBlank()) rk else fileUri?.removePrefix("r2://")?.removePrefix("college-erp-files/")
+                        }
                     } catch (_: Exception) {}
 
                     list.add(
@@ -949,7 +1049,9 @@ object SupabaseApiClient {
                             fileType = fileType,
                             downloadUrl = fileUri ?: "",
                             fileName = fileName,
-                            fileUri = fileUri
+                            fileUri = fileUri,
+                            storageProvider = storageProvider,
+                            r2Key = r2Key
                         )
                     )
                 }
@@ -971,6 +1073,25 @@ object SupabaseApiClient {
     ): Boolean = withContext(Dispatchers.IO) {
         var success = false
 
+        val isR2 = material.isR2Storage ||
+                material.storageProvider.equals("r2", ignoreCase = true) ||
+                !material.r2Key.isNullOrBlank() ||
+                material.fileUri?.startsWith("r2://") == true ||
+                material.downloadUrl.startsWith("r2://") ||
+                material.fileUri?.startsWith("study-materials/") == true ||
+                material.downloadUrl.startsWith("study-materials/")
+
+        val providerToSave = if (isR2) "r2" else material.storageProvider
+        val keyToSave = material.r2Key ?: if (material.fileUri?.startsWith("r2://") == true) {
+            material.fileUri?.removePrefix("r2://")?.removePrefix("college-erp-files/")
+        } else if (material.downloadUrl.startsWith("r2://")) {
+            material.downloadUrl.removePrefix("r2://").removePrefix("college-erp-files/")
+        } else if (material.fileUri?.startsWith("study-materials/") == true) {
+            material.fileUri
+        } else if (material.downloadUrl.startsWith("study-materials/")) {
+            material.downloadUrl
+        } else null
+
         // 1. Try public.study_materials table
         try {
             val postJson = JSONObject().apply {
@@ -985,6 +1106,10 @@ object SupabaseApiClient {
                 put("download_url", material.downloadUrl)
                 put("department", department ?: "Information Technology")
                 put("section", section ?: "Section A")
+                put("storage_provider", providerToSave)
+                if (!keyToSave.isNullOrBlank()) {
+                    put("r2_key", keyToSave)
+                }
                 if (!material.fileName.isNullOrBlank()) {
                     put("file_name", material.fileName)
                 }
@@ -1009,6 +1134,10 @@ object SupabaseApiClient {
                 put("file_type", material.fileType)
                 put("file_name", material.fileName ?: "")
                 put("file_url", material.downloadUrl.ifBlank { material.fileUri ?: "" })
+                put("storage_provider", providerToSave)
+                if (!keyToSave.isNullOrBlank()) {
+                    put("r2_key", keyToSave)
+                }
             }
             val circJson = JSONObject().apply {
                 put("id", material.id)
@@ -1076,6 +1205,284 @@ object SupabaseApiClient {
         } finally {
             conn?.disconnect()
         }
+    }
+
+    data class R2UploadPresignedResponse(
+        val uploadUrl: String,
+        val objectKey: String,
+        val bucket: String,
+        val expiresIn: Int = 3600
+    )
+
+    data class R2CompleteUploadResponse(
+        val success: Boolean,
+        val verified: Boolean,
+        val objectKey: String,
+        val contentLength: Long? = null,
+        val etag: String? = null
+    )
+
+    /**
+     * Request a secure presigned PUT URL from Supabase Edge Function to upload directly to Cloudflare R2.
+     * Verifies user session and ensures only faculty can request upload URLs.
+     */
+    suspend fun getR2UploadPresignedUrl(
+        fileName: String,
+        fileType: String = "assignment",
+        mimeType: String = "application/pdf"
+    ): R2UploadPresignedResponse? = withContext(Dispatchers.IO) {
+        val endpoints = listOf(
+            "$FUNCTIONS_URL/r2-upload-url",
+            "$FUNCTIONS_URL/r2-storage"
+        )
+        val bodyJson = JSONObject().apply {
+            put("action", "upload")
+            put("fileName", fileName)
+            put("fileType", fileType)
+            put("contentType", mimeType)
+        }.toString()
+
+        for (endpoint in endpoints) {
+            var conn: HttpURLConnection? = null
+            try {
+                val url = URL(endpoint)
+                conn = url.openConnection() as HttpURLConnection
+                conn.requestMethod = "POST"
+                conn.connectTimeout = 10000
+                conn.readTimeout = 10000
+                val token = getAuthToken()
+                conn.setRequestProperty("Authorization", "Bearer $token")
+                conn.setRequestProperty("apikey", PUBLISHABLE_KEY)
+                conn.setRequestProperty("Content-Type", "application/json")
+                conn.setRequestProperty("Accept", "application/json")
+                conn.doOutput = true
+
+                OutputStreamWriter(conn.outputStream, "UTF-8").use { writer ->
+                    writer.write(bodyJson)
+                    writer.flush()
+                }
+
+                val code = conn.responseCode
+                if (code in 200..299) {
+                    val resp = conn.inputStream.bufferedReader().use { it.readText() }
+                    val json = JSONObject(resp)
+                    val uploadUrl = json.optString("uploadUrl")
+                    val objectKey = json.optString("objectKey")
+                    val bucket = json.optString("bucket", "college-erp-files")
+                    val expiresIn = json.optInt("expiresIn", 3600)
+                    if (uploadUrl.isNotBlank() && objectKey.isNotBlank()) {
+                        Log.d(TAG, "R2 presigned upload URL generated successfully for key: $objectKey")
+                        return@withContext R2UploadPresignedResponse(
+                            uploadUrl = uploadUrl,
+                            objectKey = objectKey,
+                            bucket = bucket,
+                            expiresIn = expiresIn
+                        )
+                    }
+                } else {
+                    val err = conn.errorStream?.bufferedReader()?.use { it.readText() }
+                    Log.w(TAG, "R2 upload-url request to $endpoint failed with code $code: $err")
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "R2 upload-url request exception at $endpoint: ${e.message}")
+            } finally {
+                conn?.disconnect()
+            }
+        }
+        null
+    }
+
+    /**
+     * Upload binary bytes directly to Cloudflare R2 bucket via HTTP PUT using the presigned URL.
+     */
+    suspend fun uploadFileToR2(
+        uploadUrl: String,
+        fileBytes: ByteArray,
+        mimeType: String = "application/pdf"
+    ): Boolean = withContext(Dispatchers.IO) {
+        var conn: HttpURLConnection? = null
+        try {
+            val url = URL(uploadUrl)
+            conn = url.openConnection() as HttpURLConnection
+            conn.requestMethod = "PUT"
+            conn.connectTimeout = 30000
+            conn.readTimeout = 30000
+            conn.setRequestProperty("Content-Type", mimeType.ifBlank { "application/pdf" })
+            conn.setFixedLengthStreamingMode(fileBytes.size)
+            conn.doOutput = true
+
+            conn.outputStream.use { os ->
+                os.write(fileBytes)
+                os.flush()
+            }
+
+            val code = conn.responseCode
+            if (code in 200..299) {
+                Log.d(TAG, "File uploaded successfully directly to Cloudflare R2 (HTTP $code)")
+                true
+            } else {
+                val err = conn.errorStream?.bufferedReader()?.use { it.readText() }
+                Log.e(TAG, "Cloudflare R2 direct PUT upload failed ($code): $err")
+                false
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Cloudflare R2 direct PUT upload exception: ${e.message}", e)
+            false
+        } finally {
+            conn?.disconnect()
+        }
+    }
+
+    /**
+     * Call Supabase Edge Function to verify that the file was successfully written to Cloudflare R2 bucket.
+     * Must be called after HTTP PUT upload succeeds and before saving metadata in the database.
+     */
+    suspend fun completeR2Upload(objectKey: String): R2CompleteUploadResponse? = withContext(Dispatchers.IO) {
+        val cleanKey = objectKey.trim()
+            .removePrefix("r2://")
+            .removePrefix("college-erp-files/")
+
+        val endpoints = listOf(
+            "$FUNCTIONS_URL/complete-upload",
+            "$FUNCTIONS_URL/r2-storage"
+        )
+        val bodyJson = JSONObject().apply {
+            put("action", "complete")
+            put("objectKey", cleanKey)
+        }.toString()
+
+        for (endpoint in endpoints) {
+            var conn: HttpURLConnection? = null
+            try {
+                val url = URL(endpoint)
+                conn = url.openConnection() as HttpURLConnection
+                conn.requestMethod = "POST"
+                conn.connectTimeout = 10000
+                conn.readTimeout = 10000
+                val token = getAuthToken()
+                conn.setRequestProperty("Authorization", "Bearer $token")
+                conn.setRequestProperty("apikey", PUBLISHABLE_KEY)
+                conn.setRequestProperty("Content-Type", "application/json")
+                conn.setRequestProperty("Accept", "application/json")
+                conn.doOutput = true
+
+                OutputStreamWriter(conn.outputStream, "UTF-8").use { writer ->
+                    writer.write(bodyJson)
+                    writer.flush()
+                }
+
+                val code = conn.responseCode
+                if (code in 200..299) {
+                    val resp = conn.inputStream.bufferedReader().use { it.readText() }
+                    val json = JSONObject(resp)
+                    val success = json.optBoolean("success", false)
+                    val verified = json.optBoolean("verified", false)
+                    if (success || verified) {
+                        Log.d(TAG, "R2 upload verified successfully in bucket for key: $cleanKey")
+                        return@withContext R2CompleteUploadResponse(
+                            success = true,
+                            verified = true,
+                            objectKey = json.optString("objectKey", cleanKey),
+                            contentLength = if (json.has("contentLength")) json.optLong("contentLength") else null,
+                            etag = json.optString("etag")
+                        )
+                    }
+                } else {
+                    val err = conn.errorStream?.bufferedReader()?.use { it.readText() }
+                    Log.w(TAG, "R2 complete-upload verification request to $endpoint failed with code $code: $err")
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "R2 complete-upload request exception at $endpoint: ${e.message}")
+            } finally {
+                conn?.disconnect()
+            }
+        }
+        null
+    }
+
+    /**
+     * Request a secure presigned GET URL from Supabase Edge Function to download/view private Cloudflare R2 files.
+     */
+    suspend fun getR2DownloadUrl(objectKey: String): String? = withContext(Dispatchers.IO) {
+        val cleanKey = objectKey.trim()
+            .removePrefix("r2://")
+            .removePrefix("college-erp-files/")
+
+        val endpoints = listOf(
+            "$FUNCTIONS_URL/r2-download-url",
+            "$FUNCTIONS_URL/r2-storage"
+        )
+        val bodyJson = JSONObject().apply {
+            put("action", "download")
+            put("objectKey", cleanKey)
+        }.toString()
+
+        for (endpoint in endpoints) {
+            var conn: HttpURLConnection? = null
+            try {
+                val url = URL(endpoint)
+                conn = url.openConnection() as HttpURLConnection
+                conn.requestMethod = "POST"
+                conn.connectTimeout = 10000
+                conn.readTimeout = 10000
+                val token = getAuthToken()
+                conn.setRequestProperty("Authorization", "Bearer $token")
+                conn.setRequestProperty("apikey", PUBLISHABLE_KEY)
+                conn.setRequestProperty("Content-Type", "application/json")
+                conn.setRequestProperty("Accept", "application/json")
+                conn.doOutput = true
+
+                OutputStreamWriter(conn.outputStream, "UTF-8").use { writer ->
+                    writer.write(bodyJson)
+                    writer.flush()
+                }
+
+                val code = conn.responseCode
+                if (code in 200..299) {
+                    val resp = conn.inputStream.bufferedReader().use { it.readText() }
+                    val json = JSONObject(resp)
+                    val downloadUrl = json.optString("downloadUrl")
+                    if (downloadUrl.isNotBlank()) {
+                        Log.d(TAG, "R2 presigned download URL obtained successfully for key: $cleanKey")
+                        return@withContext downloadUrl
+                    }
+                } else {
+                    val err = conn.errorStream?.bufferedReader()?.use { it.readText() }
+                    Log.w(TAG, "R2 download-url request to $endpoint failed with code $code: $err")
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "R2 download-url request exception at $endpoint: ${e.message}")
+            } finally {
+                conn?.disconnect()
+            }
+        }
+        null
+    }
+
+    /**
+     * Resolves a download URL for any assignment or study material:
+     * - If it's a legacy Supabase storage URL, returns it directly (backward compatibility).
+     * - If it's stored in Cloudflare R2 (r2://, r2Key, or private path), requests a presigned download URL from Edge Functions.
+     */
+    suspend fun resolveDownloadUrl(rawUrl: String?, r2Key: String? = null): String? = withContext(Dispatchers.IO) {
+        val candidateKey = r2Key?.ifBlank { null }
+            ?: if (rawUrl?.startsWith("r2://") == true) rawUrl.removePrefix("r2://").removePrefix("college-erp-files/")
+            else if (rawUrl?.startsWith("assignments/") == true || rawUrl?.startsWith("study-materials/") == true) rawUrl
+            else null
+
+        if (!candidateKey.isNullOrBlank()) {
+            val r2Signed = getR2DownloadUrl(candidateKey)
+            if (!r2Signed.isNullOrBlank()) return@withContext r2Signed
+        }
+
+        // Backward compatibility: If it's a legacy Supabase storage URL or any standard https link, serve directly
+        if (!rawUrl.isNullOrBlank()) {
+            if (rawUrl.contains(".supabase.co/storage/") || (rawUrl.startsWith("http://") || rawUrl.startsWith("https://"))) {
+                return@withContext rawUrl
+            }
+        }
+
+        null
     }
 
     /**

@@ -7,6 +7,7 @@ import com.vvit.smartcollege.data.repository.AdminRepository
 import com.vvit.smartcollege.data.repository.AuthRepository
 import com.vvit.smartcollege.data.repository.StudentRepository
 import com.vvit.smartcollege.data.repository.TeacherRepository
+import com.vvit.smartcollege.ui.auth.AuthViewModel
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -68,6 +69,34 @@ class SmartCollegeUnitTest {
         // Login with new password
         val loginResult = authRepo.login("student.vvit@college.edu", "newSecurePassword456", UserRole.STUDENT)
         assertTrue(loginResult.isSuccess)
+    }
+
+    @Test
+    fun testOtpVerificationSecurityWithoutBypass() {
+        val authRepo = AuthRepository()
+        val viewModel = AuthViewModel(authRepo)
+
+        viewModel.openForgotPassword()
+        viewModel.onResetEmailChange("student.vvit@college.edu")
+        viewModel.onResetPhoneChange("9876543210")
+        viewModel.submitResetVerification()
+
+        assertEquals(2, viewModel.forgotPasswordStep.value)
+        val legitOtp = viewModel.generatedOtp.value
+        assertEquals(6, legitOtp.length)
+
+        // Attempting with wrong OTP (e.g. deprecated bypass "482910" if different from legitOtp)
+        val wrongOtp = if (legitOtp == "482910") "123456" else "482910"
+        viewModel.onResetOtpChange(wrongOtp)
+        viewModel.verifyResetOtp()
+        assertEquals(2, viewModel.forgotPasswordStep.value)
+        assertNotNull(viewModel.resetErrorMessage.value)
+
+        // Attempting with the correct generated OTP
+        viewModel.onResetOtpChange(legitOtp)
+        viewModel.verifyResetOtp()
+        assertEquals(3, viewModel.forgotPasswordStep.value)
+        assertNull(viewModel.resetErrorMessage.value)
     }
 
     @Test
@@ -141,5 +170,50 @@ class SmartCollegeUnitTest {
         assertEquals(initialCount + 1, adminRepo.studentDirectory.value.size)
         val newStudent = adminRepo.studentDirectory.value.first()
         assertEquals("Test Student", newStudent.name)
+    }
+
+    @Test
+    fun testEmailValidationLogic() {
+        // Invalid emails from requirements
+        assertFalse(AuthViewModel.isValidEmail("ankush"))
+        assertFalse(AuthViewModel.isValidEmail("ankush@gmail"))
+        assertFalse(AuthViewModel.isValidEmail("test123"))
+
+        // Other invalid cases
+        assertFalse(AuthViewModel.isValidEmail(""))
+        assertFalse(AuthViewModel.isValidEmail("   "))
+        assertFalse(AuthViewModel.isValidEmail("ankush@"))
+        assertFalse(AuthViewModel.isValidEmail("@gmail.com"))
+        assertFalse(AuthViewModel.isValidEmail("ankush@.com"))
+        assertFalse(AuthViewModel.isValidEmail("ankush@gmail."))
+        assertFalse(AuthViewModel.isValidEmail("ankush@gmail.c"))
+
+        // Valid emails
+        assertTrue(AuthViewModel.isValidEmail("ankush@gmail.com"))
+        assertTrue(AuthViewModel.isValidEmail("student.vvit@college.edu"))
+        assertTrue(AuthViewModel.isValidEmail("teacher.vvit@college.edu"))
+        assertTrue(AuthViewModel.isValidEmail("admin.vvit@college.edu"))
+        assertTrue(AuthViewModel.isValidEmail("user@sub.domain.co.in"))
+    }
+
+    @Test
+    fun testLoginPreventsSubmissionForInvalidEmail() {
+        val viewModel = AuthViewModel()
+        var loginSucceeded = false
+
+        // Test invalid email
+        viewModel.onEmailChange("ankush@gmail")
+        viewModel.onPasswordChange("password123")
+        viewModel.login { loginSucceeded = true }
+
+        assertFalse(loginSucceeded)
+        assertEquals("Please enter a valid email address.", viewModel.errorMessage.value)
+
+        // Test another invalid email
+        viewModel.onEmailChange("test123")
+        viewModel.login { loginSucceeded = true }
+
+        assertFalse(loginSucceeded)
+        assertEquals("Please enter a valid email address.", viewModel.errorMessage.value)
     }
 }

@@ -66,6 +66,7 @@ serve(async (req) => {
     const fileName = (body.fileName || "").trim();
     const fileType = (body.fileType || "assignment").toLowerCase().trim();
     const contentType = (body.contentType || "application/pdf").toLowerCase().trim();
+    const fileSize = Number(body.fileSize || 0);
 
     if (!fileName) {
       return new Response(
@@ -74,8 +75,37 @@ serve(async (req) => {
       );
     }
 
-    // Disallow dangerous executable extensions
+    // 1. Enforce file size validation (Max 25 MB)
+    const MAX_FILE_SIZE = 25 * 1024 * 1024;
+    if (fileSize > MAX_FILE_SIZE) {
+      return new Response(
+        JSON.stringify({ error: "File exceeds maximum permitted size of 25 MB." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // 2. Enforce strict extension whitelist
     const lowerName = fileName.toLowerCase();
+    const allowedExtensions = [".pdf", ".doc", ".docx", ".ppt", ".pptx", ".xls", ".xlsx", ".txt", ".csv", ".png", ".jpg", ".jpeg", ".webp", ".zip"];
+    const hasAllowedExt = allowedExtensions.some((ext) => lowerName.endsWith(ext));
+    if (!hasAllowedExt) {
+      return new Response(
+        JSON.stringify({ error: "Invalid file type: Only academic documents (.pdf, .doc, .docx, .ppt, .xls), images, text, and zip archives are permitted." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // 3. Enforce MIME type validation
+    const allowedMimePrefixes = ["application/pdf", "application/msword", "application/vnd.openxmlformats", "application/vnd.ms-", "text/", "image/", "application/zip", "application/x-zip"];
+    const isAllowedMime = allowedMimePrefixes.some((p) => contentType.startsWith(p)) || contentType === "application/octet-stream";
+    if (!isAllowedMime) {
+      return new Response(
+        JSON.stringify({ error: "Invalid Content-Type header for upload." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Disallow dangerous executable extensions
     const disallowed = [".exe", ".bat", ".cmd", ".sh", ".php", ".js", ".vbs", ".apk", ".bin"];
     if (disallowed.some((ext) => lowerName.endsWith(ext))) {
       return new Response(
@@ -117,8 +147,8 @@ serve(async (req) => {
       ContentType: contentType,
     });
 
-    // Generate short-lived presigned PUT URL (valid for 3600 seconds)
-    const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+    // Generate short-lived presigned PUT URL (valid for 900 seconds / 15 minutes)
+    const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 900 });
 
     return new Response(
       JSON.stringify({
@@ -126,7 +156,7 @@ serve(async (req) => {
         uploadUrl,
         objectKey,
         bucket: R2_BUCKET_NAME,
-        expiresIn: 3600,
+        expiresIn: 900,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

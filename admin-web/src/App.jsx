@@ -12,14 +12,50 @@ import { FacultyPage } from './pages/FacultyPage';
 import { AttendancePage } from './pages/AttendancePage';
 import { TimetablePage } from './pages/TimetablePage';
 import { CircularsPage } from './pages/CircularsPage';
+import { LoginPage } from './pages/LoginPage';
 
 import { dataService } from './services/dataService';
-import { checkSupabaseStatus } from './lib/supabase';
+import { checkSupabaseStatus, supabase } from './lib/supabase';
 
 export function App() {
+  const [currentUser, setCurrentUser] = useState(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [currentTab, setCurrentTab] = useState('dashboard');
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
+
+  // Authenticate Admin session on mount
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const user = session?.user;
+      const role = user?.user_metadata?.role?.toLowerCase() || '';
+      if (user && role === 'admin') {
+        setCurrentUser(user);
+      } else {
+        setCurrentUser(null);
+      }
+      setIsAuthLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      const user = session?.user;
+      const role = user?.user_metadata?.role?.toLowerCase() || '';
+      if (user && role === 'admin') {
+        setCurrentUser(user);
+      } else {
+        setCurrentUser(null);
+      }
+      setIsAuthLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setCurrentUser(null);
+    showToast('info', 'Signed Out', 'You have been securely signed out.');
+  };
 
   // Data states
   const [students, setStudents] = useState([]);
@@ -255,6 +291,26 @@ export function App() {
     showToast('info', 'Circular Removed', 'The notice was removed.');
   };
 
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <LoadingSpinner message="Verifying administrative credentials..." />
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    return (
+      <LoginPage
+        onLoginSuccess={({ user }) => {
+          setCurrentUser(user);
+          setCurrentTab('dashboard');
+          showToast('success', 'Authenticated', 'Welcome to the Administrator Control Center.');
+        }}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 flex">
       {/* Sidebar Navigation */}
@@ -277,6 +333,7 @@ export function App() {
           onOpenSupabaseModal={() => setIsSupabaseModalOpen(true)}
           onRefreshData={() => loadAllData(true)}
           isRefreshing={isRefreshing}
+          onLogout={handleLogout}
         />
 
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
@@ -361,6 +418,15 @@ export function App() {
                   setIsAddModalOpen={setIsCircularAddOpen}
                   onShowToast={showToast}
                   onConfirmDelete={openConfirmDialog}
+                />
+              )}
+
+              {currentTab === 'login' && (
+                <LoginPage
+                  onLoginSuccess={() => {
+                    setCurrentTab('dashboard');
+                    showToast('success', 'Signed In', 'Welcome to the Smart Campus Admin Portal.');
+                  }}
                 />
               )}
             </>

@@ -18,6 +18,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -69,6 +70,25 @@ fun LoginScreen(
     val isLoading by viewModel.isLoading.collectAsState()
 
     var showPassword by remember { mutableStateOf(false) }
+
+    // Email validation state tracking
+    var emailWasEverFocused by remember(selectedRole) { mutableStateOf(false) }
+    var emailHasLeftField by remember(selectedRole) { mutableStateOf(false) }
+    var emailHasTyped by remember(selectedRole) { mutableStateOf(false) }
+    var attemptedSubmit by remember(selectedRole) { mutableStateOf(false) }
+
+    val isEmailValid = AuthViewModel.isValidEmail(email)
+    val hasEmailBeenTouched = emailHasTyped || emailHasLeftField || attemptedSubmit || email.isNotEmpty()
+    val showEmailError = hasEmailBeenTouched && !isEmailValid
+
+    val handleSignIn = {
+        attemptedSubmit = true
+        if (AuthViewModel.isValidEmail(email)) {
+            if (!isLoading) {
+                viewModel.login(onLoginSuccess)
+            }
+        }
+    }
 
     val roleTabs = listOf("Student", "Teacher")
     val selectedRoleIndex = when (selectedRole) {
@@ -234,8 +254,20 @@ fun LoginScreen(
                         Spacer(modifier = Modifier.height(6.dp))
                         OutlinedTextField(
                             value = email,
-                            onValueChange = { viewModel.onEmailChange(it) },
-                            modifier = Modifier.fillMaxWidth(),
+                            onValueChange = {
+                                emailHasTyped = true
+                                viewModel.onEmailChange(it)
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .onFocusChanged { focusState ->
+                                    if (focusState.isFocused) {
+                                        emailWasEverFocused = true
+                                    } else if (emailWasEverFocused) {
+                                        emailHasLeftField = true
+                                    }
+                                },
+                            isError = showEmailError,
                             leadingIcon = {
                                 Icon(
                                     imageVector = Icons.Default.Email,
@@ -255,13 +287,25 @@ fun LoginScreen(
                                 errorBorderColor = Color(0xFFD8524F),
                                 focusedTextColor = primaryText,
                                 unfocusedTextColor = primaryText,
-                                cursorColor = inputFocusedBorder
+                                cursorColor = inputFocusedBorder,
+                                errorCursorColor = Color(0xFFD8524F)
                             ),
                             keyboardOptions = KeyboardOptions(
                                 keyboardType = KeyboardType.Email,
                                 imeAction = ImeAction.Next
                             )
                         )
+                        if (showEmailError) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Please enter a valid email address.",
+                                style = Typography.bodySmall.copy(
+                                    color = Color(0xFFD8524F),
+                                    fontSize = 11.sp
+                                ),
+                                modifier = Modifier.padding(start = 4.dp)
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -319,9 +363,7 @@ fun LoginScreen(
                             ),
                             keyboardActions = KeyboardActions(
                                 onDone = {
-                                    if (!isLoading) {
-                                        viewModel.login(onLoginSuccess)
-                                    }
+                                    handleSignIn()
                                 }
                             )
                         )
@@ -339,7 +381,7 @@ fun LoginScreen(
 
                     // Sign In Button
                     Button(
-                        onClick = { viewModel.login(onLoginSuccess) },
+                        onClick = { handleSignIn() },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(48.dp),

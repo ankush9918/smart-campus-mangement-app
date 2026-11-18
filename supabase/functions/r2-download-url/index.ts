@@ -91,10 +91,18 @@ serve(async (req) => {
     if (cleanKey.startsWith("r2://")) {
       cleanKey = cleanKey.replace(/^r2:\/\/[^/]+\//, "").replace(/^r2:\/\//, "");
     }
-    if (cleanKey.includes("..")) {
+    if (cleanKey.includes("..") || cleanKey.includes("//") || cleanKey.includes("\\")) {
       return new Response(
         JSON.stringify({ error: "Invalid object key: Path traversal is not permitted." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Storage boundary: Students and professors may only access assignments and study materials
+    if (!cleanKey.startsWith("assignments/") && !cleanKey.startsWith("study-materials/")) {
+      return new Response(
+        JSON.stringify({ error: "Forbidden: Storage access is restricted to assignments and study-materials." }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -157,14 +165,14 @@ serve(async (req) => {
       Key: cleanKey,
     });
 
-    const downloadUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+    const downloadUrl = await getSignedUrl(s3Client, command, { expiresIn: 900 });
 
     return new Response(
       JSON.stringify({
         success: true,
         downloadUrl,
         objectKey: cleanKey,
-        expiresIn: 3600,
+        expiresIn: 900,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

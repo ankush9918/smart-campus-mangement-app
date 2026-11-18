@@ -30,6 +30,9 @@ class AuthRepository(
         val authResult = SupabaseApiClient.signInWithPassword(trimmedEmail, password)
 
         if (authResult.isSuccess) {
+            if (!authResult.accessToken.isNullOrBlank()) {
+                SupabaseApiClient.setAuthToken(authResult.accessToken)
+            }
             val normalizedRole = authResult.role?.lowercase()?.trim() ?: ""
 
             // Strict Role-Based Access Control (RBAC)
@@ -135,46 +138,12 @@ class AuthRepository(
             return@withContext Result.success(user)
         }
 
-        // 2. Fallback to local SQLite DAO if present
-        if (authDao != null) {
-            val localUser = authDao.authenticate(trimmedEmail, password, role)
-            if (localUser != null) {
-                sessionManager?.saveSession(localUser)
-                _currentUser.value = localUser
-                MockDatabase.currentUser.value = localUser
-                return@withContext Result.success(localUser)
-            }
-        }
-
-        // 3. Fallback for built-in demo credentials (offline testing)
-        val isDemoStudent = (trimmedEmail.equals("student.vvit@college.edu", ignoreCase = true)
-            || trimmedEmail.equals("VVIT/CS/2021/045", ignoreCase = true)
-            || trimmedEmail.equals("std_1", ignoreCase = true)
-            || trimmedEmail.equals("student", ignoreCase = true))
-            && password == "password123" && role == UserRole.STUDENT
-
-        val isDemoTeacher = (trimmedEmail.equals("teacher.vvit@college.edu", ignoreCase = true)
-            || trimmedEmail.equals("VVIT/CS/T-104", ignoreCase = true)
-            || trimmedEmail.equals("tch_1", ignoreCase = true)
-            || trimmedEmail.equals("teacher", ignoreCase = true))
-            && password == "password123" && role == UserRole.TEACHER
-
-        if (isDemoStudent || isDemoTeacher) {
-            val defaultUser = when (role) {
-                UserRole.STUDENT -> User(id = "std_1", name = "Aditya Sharma", email = "student.vvit@college.edu", role = UserRole.STUDENT, identifier = "VVIT/CS/2021/045")
-                UserRole.TEACHER -> User(id = "tch_1", name = "Dr. Rajesh Kumar", email = "teacher.vvit@college.edu", role = UserRole.TEACHER, identifier = "VVIT/CS/T-104")
-                UserRole.ADMIN -> User(id = "adm_1", name = "Dr. Rajesh Varma", email = "admin.vvit@college.edu", role = UserRole.ADMIN, identifier = "EMP-ADM-001")
-            }
-            sessionManager?.saveSession(defaultUser)
-            _currentUser.value = defaultUser
-            MockDatabase.currentUser.value = defaultUser
-            return@withContext Result.success(defaultUser)
-        }
-
+        // Return generic error message to prevent user enumeration
+        val genericErrorMsg = "Invalid email or password. Please verify your credentials."
         val errorMsg = if (authResult.errorMessage?.contains("Invalid login credentials", ignoreCase = true) == true) {
-            "Invalid credentials. Please check your User ID and password."
+            genericErrorMsg
         } else {
-            authResult.errorMessage ?: "Invalid credentials. Please check your User ID and password."
+            authResult.errorMessage ?: genericErrorMsg
         }
         return@withContext Result.failure(Exception(errorMsg))
     }
@@ -190,11 +159,7 @@ class AuthRepository(
                 MockDatabase.currentUser.value = user
                 Result.success(user)
             } else {
-                if (authDao.isEmailRegistered(trimmedEmail) || authDao.isIdentifierRegistered(trimmedEmail)) {
-                    Result.failure(Exception("Invalid password. Please check and try again."))
-                } else {
-                    Result.failure(Exception("No account found for $trimmedEmail with role ${role.name}."))
-                }
+                Result.failure(Exception("Invalid email or password. Please verify your credentials."))
             }
         }
 
@@ -239,7 +204,7 @@ class AuthRepository(
                 identifier = trimmedIdentifier
             )
 
-            val success = authDao.registerUser(newUser, password, department, phone)
+            val success = authDao.registerUser(newUser, department, phone)
             return if (success) {
                 sessionManager?.saveSession(newUser)
                 _currentUser.value = newUser
@@ -266,6 +231,7 @@ class AuthRepository(
 
     fun logout() {
         sessionManager?.clearSession()
+        SupabaseApiClient.setAuthToken(null)
         _currentUser.value = null
         MockDatabase.currentUser.value = null
     }
@@ -304,5 +270,38 @@ class AuthRepository(
             }
         }
         return Result.success(true)
+    }
+
+    suspend fun requestResetOtpAsync(email: String, phone: String = ""): Result<String> = withContext(Dispatchers.IO) {
+        val res = SupabaseApiClient.requestPasswordResetOtp(email, phone)
+        if (res != null && res.optBoolean("success", false)) {
+            val devOtp = res.optString("dev_otp", "")
+            Result.success(devOtp)
+        } else {
+            val err = res?.optString("error", "Unable to request OTP. Please try again.") ?: "Network error."
+            Result.failure(Exception(err))
+        }
+    }
+
+    suspend fun verifyResetOtpAsync(email: String, otp: String): Result<String> = withContext(Dispatchers.IO) {
+        val res = SupabaseApiClient.verifyPasswordResetOtp(email, otp)
+        if (res != null && res.optBoolean("success", false)) {
+            val token = res.optString("reset_token", "")
+            Result.success(token)
+        } else {
+            val err = res?.optString("error", "Invalid or expired OTP.") ?: "Network error."
+            Result.failure(Exception(err))
+        }
+    }
+
+    suspend fun completeResetPasswordAsync(email: String, resetToken: String, newPassword: String): Result<Boolean> = withContext(Dispatchers.IO) {
+        val res = SupabaseApiClient.completePasswordReset(email, resetToken, newPassword)
+        if (res != null && res.optBoolean("success", false)) {
+            authDao?.updatePasswordByEmail(email, newPassword)
+            Result.success(true)
+        } else {
+            val err = res?.optString("error", "Failed to update password.") ?: "Network error."
+            Result.failure(Exception(err))
+        }
     }
 }

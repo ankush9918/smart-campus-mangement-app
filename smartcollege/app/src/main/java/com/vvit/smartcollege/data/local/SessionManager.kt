@@ -42,18 +42,21 @@ class SessionManager(context: Context) {
             putString(KEY_USER_IDENTIFIER, user.identifier)
             putString(KEY_USER_AVATAR, user.avatarUrl)
             if (!accessToken.isNullOrBlank()) {
-                putString(KEY_ACCESS_TOKEN, accessToken)
+                val encryptedToken = SecureTokenStorage.encryptToken(accessToken)
+                putString(KEY_ACCESS_TOKEN, encryptedToken)
             }
             apply()
         }
     }
 
     fun saveAccessToken(token: String) {
-        prefs.edit().putString(KEY_ACCESS_TOKEN, token).apply()
+        val encryptedToken = SecureTokenStorage.encryptToken(token)
+        prefs.edit().putString(KEY_ACCESS_TOKEN, encryptedToken).apply()
     }
 
     fun getAccessToken(): String? {
-        return prefs.getString(KEY_ACCESS_TOKEN, null)
+        val raw = prefs.getString(KEY_ACCESS_TOKEN, null) ?: return null
+        return SecureTokenStorage.decryptToken(raw)
     }
 
     fun getSession(): User? {

@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { EmptyState } from '../components/LoadingState';
 import { dataService, MASTER_SUBJECTS, normalizeSubject } from '../services/dataService';
+import { isValidEmail } from '../lib/validation';
 
 const DEPARTMENTS = [
   'All Departments',
@@ -79,6 +80,7 @@ export function FacultyPage({
     subjects: ''
   });
   const [formErrors, setFormErrors] = useState({});
+  const [emailTouched, setEmailTouched] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Keep form clean and blank when Add modal opens
@@ -100,6 +102,7 @@ export function FacultyPage({
         subjects: ''
       });
       setFormErrors({});
+      setEmailTouched(false);
       setShowPassword(false);
       setSelectedPhotoFile(null);
       setPhotoPreview(null);
@@ -132,6 +135,7 @@ export function FacultyPage({
       subjects: ''
     });
     setFormErrors({});
+    setEmailTouched(false);
     setIsAddModalOpen(true);
   };
 
@@ -172,6 +176,7 @@ export function FacultyPage({
       subjects: subjsStr
     });
     setFormErrors({});
+    setEmailTouched(false);
     setIsAddModalOpen(true);
   };
 
@@ -248,18 +253,18 @@ export function FacultyPage({
     if (!formData.designation.trim()) errors.designation = 'Designation is required.';
     if (!formData.qualification.trim()) errors.qualification = 'Graduation / Education details are required.';
     if (!formData.department) errors.department = 'Department is required.';
-    if (!formData.email.trim()) {
-      errors.email = 'Email address is required.';
-    } else if (!formData.email.includes('@')) {
-      errors.email = 'Valid email is required.';
+    if (!formData.email.trim() || !isValidEmail(formData.email)) {
+      errors.email = 'Please enter a valid email address.';
     }
 
-    // Require password for new accounts (min 6 characters)
+    // Require password for new accounts (min 8 characters, letters and numbers)
     if (!editingFaculty) {
       if (!formData.password || !formData.password.trim()) {
         errors.password = 'Professor login password is required.';
-      } else if (formData.password.length < 6) {
-        errors.password = 'Password must be at least 6 characters.';
+      } else if (formData.password.length < 8) {
+        errors.password = 'Password must be at least 8 characters long.';
+      } else if (!/[A-Za-z]/.test(formData.password) || !/[0-9]/.test(formData.password)) {
+        errors.password = 'Password must contain both letters and numbers.';
       }
     }
 
@@ -272,6 +277,7 @@ export function FacultyPage({
   // Submit Add / Edit
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setEmailTouched(true);
     if (!validateForm()) return;
 
     setIsSubmitting(true);
@@ -667,12 +673,35 @@ export function FacultyPage({
                   <input
                     type="email"
                     value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className={`w-full px-3 py-2 bg-white border rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/20 ${
-                      formErrors.email ? 'border-rose-400' : 'border-slate-200 focus:border-brand-500'
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setEmailTouched(true);
+                      setFormData(prev => ({ ...prev, email: val }));
+                      if (!isValidEmail(val)) {
+                        setFormErrors(prev => ({ ...prev, email: 'Please enter a valid email address.' }));
+                      } else {
+                        setFormErrors(prev => {
+                          const next = { ...prev };
+                          delete next.email;
+                          return next;
+                        });
+                      }
+                    }}
+                    onBlur={() => {
+                      setEmailTouched(true);
+                      if (!isValidEmail(formData.email)) {
+                        setFormErrors(prev => ({ ...prev, email: 'Please enter a valid email address.' }));
+                      }
+                    }}
+                    className={`w-full px-3 py-2 bg-white border rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 ${
+                      (emailTouched || formErrors.email) && !isValidEmail(formData.email)
+                        ? 'border-rose-500 ring-1 ring-rose-500 focus:border-rose-500'
+                        : 'border-slate-200 focus:border-brand-500 focus:ring-brand-500/20'
                     }`}
                   />
-                  {formErrors.email && <p className="text-[11px] text-rose-500 mt-1">{formErrors.email}</p>}
+                  {(emailTouched || formErrors.email) && !isValidEmail(formData.email) && (
+                    <p className="text-[11px] text-rose-500 mt-1">Please enter a valid email address.</p>
+                  )}
                 </div>
 
                 {/* Password (for Add Faculty / Supabase Auth) */}

@@ -106,6 +106,7 @@ serve(async (req) => {
       const fileName = (body.fileName || "").trim();
       const fileType = (body.fileType || "assignment").toLowerCase().trim();
       const contentType = (body.contentType || "application/pdf").toLowerCase().trim();
+      const fileSize = Number(body.fileSize || 0);
 
       if (!fileName) {
         return new Response(
@@ -114,7 +115,25 @@ serve(async (req) => {
         );
       }
 
+      // 1. Enforce file size validation (Max 25 MB)
+      const MAX_FILE_SIZE = 25 * 1024 * 1024;
+      if (fileSize > MAX_FILE_SIZE) {
+        return new Response(
+          JSON.stringify({ error: "File exceeds maximum permitted size of 25 MB." }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // 2. Strict extension whitelist
       const lowerName = fileName.toLowerCase();
+      const allowedExtensions = [".pdf", ".doc", ".docx", ".ppt", ".pptx", ".xls", ".xlsx", ".txt", ".csv", ".png", ".jpg", ".jpeg", ".webp", ".zip"];
+      if (!allowedExtensions.some((ext) => lowerName.endsWith(ext))) {
+        return new Response(
+          JSON.stringify({ error: "Invalid file type: Only academic documents, spreadsheets, slides, images, and archives are permitted." }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       const disallowed = [".exe", ".bat", ".cmd", ".sh", ".php", ".js", ".vbs", ".apk"];
       if (disallowed.some((ext) => lowerName.endsWith(ext))) {
         return new Response(
@@ -133,7 +152,7 @@ serve(async (req) => {
         ContentType: contentType,
       });
 
-      const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+      const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 900 });
 
       return new Response(
         JSON.stringify({
@@ -141,7 +160,7 @@ serve(async (req) => {
           uploadUrl,
           objectKey,
           bucket: R2_BUCKET_NAME,
-          expiresIn: 3600,
+          expiresIn: 900,
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -169,10 +188,17 @@ serve(async (req) => {
       if (cleanKey.startsWith("r2://")) {
         cleanKey = cleanKey.replace(/^r2:\/\/[^/]+\//, "").replace(/^r2:\/\//, "");
       }
-      if (cleanKey.includes("..")) {
+      if (cleanKey.includes("..") || cleanKey.includes("//") || cleanKey.includes("\\")) {
         return new Response(
           JSON.stringify({ error: "Invalid object key: Path traversal is not permitted." }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (!cleanKey.startsWith("assignments/") && !cleanKey.startsWith("study-materials/")) {
+        return new Response(
+          JSON.stringify({ error: "Forbidden: Storage access is restricted to assignments and study-materials." }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
@@ -195,14 +221,14 @@ serve(async (req) => {
         Key: cleanKey,
       });
 
-      const downloadUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+      const downloadUrl = await getSignedUrl(s3Client, command, { expiresIn: 900 });
 
       return new Response(
         JSON.stringify({
           success: true,
           downloadUrl,
           objectKey: cleanKey,
-          expiresIn: 3600,
+          expiresIn: 900,
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -230,10 +256,17 @@ serve(async (req) => {
       if (cleanKey.startsWith("r2://")) {
         cleanKey = cleanKey.replace(/^r2:\/\/[^/]+\//, "").replace(/^r2:\/\//, "");
       }
-      if (cleanKey.includes("..")) {
+      if (cleanKey.includes("..") || cleanKey.includes("//") || cleanKey.includes("\\")) {
         return new Response(
           JSON.stringify({ error: "Invalid object key: Path traversal is not permitted." }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (!cleanKey.startsWith("assignments/") && !cleanKey.startsWith("study-materials/")) {
+        return new Response(
+          JSON.stringify({ error: "Forbidden: Storage access is restricted to assignments and study-materials." }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
@@ -292,10 +325,17 @@ serve(async (req) => {
       if (cleanKey.startsWith("r2://")) {
         cleanKey = cleanKey.replace(/^r2:\/\/[^/]+\//, "").replace(/^r2:\/\//, "");
       }
-      if (cleanKey.includes("..")) {
+      if (cleanKey.includes("..") || cleanKey.includes("//") || cleanKey.includes("\\")) {
         return new Response(
           JSON.stringify({ error: "Invalid object key: Path traversal is not permitted." }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (!cleanKey.startsWith("assignments/") && !cleanKey.startsWith("study-materials/")) {
+        return new Response(
+          JSON.stringify({ error: "Forbidden: Storage access is restricted to assignments and study-materials." }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 

@@ -74,10 +74,17 @@ serve(async (req) => {
     if (cleanKey.startsWith("r2://")) {
       cleanKey = cleanKey.replace(/^r2:\/\/[^/]+\//, "").replace(/^r2:\/\//, "");
     }
-    if (cleanKey.includes("..")) {
+    if (cleanKey.includes("..") || cleanKey.includes("//") || cleanKey.includes("\\")) {
       return new Response(
         JSON.stringify({ error: "Invalid object key: Path traversal is not permitted." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (!cleanKey.startsWith("assignments/") && !cleanKey.startsWith("study-materials/")) {
+      return new Response(
+        JSON.stringify({ error: "Forbidden: Storage operations are restricted to assignments and study-materials." }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 

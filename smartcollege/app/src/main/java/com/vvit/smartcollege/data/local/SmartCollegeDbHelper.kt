@@ -12,13 +12,12 @@ class SmartCollegeDbHelper(context: Context) : SQLiteOpenHelper(
 ) {
 
     override fun onCreate(db: SQLiteDatabase) {
-        // 1. Users table
+        // 1. Users table (Cached profile data only - ZERO password or password hash storage)
         db.execSQL("""
             CREATE TABLE ${DbConstants.TABLE_USERS} (
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
                 email TEXT NOT NULL UNIQUE,
-                password TEXT NOT NULL DEFAULT 'password123',
                 role TEXT NOT NULL,
                 identifier TEXT NOT NULL,
                 avatarUrl TEXT
@@ -363,22 +362,11 @@ class SmartCollegeDbHelper(context: Context) : SQLiteOpenHelper(
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        if (oldVersion < 2) {
-            try {
-                db.execSQL("ALTER TABLE ${DbConstants.TABLE_USERS} ADD COLUMN password TEXT NOT NULL DEFAULT 'password123'")
-            } catch (e: Exception) {
-                // Column might already exist
-            }
-        }
+        // Upgrade hooks
     }
 
     override fun onOpen(db: SQLiteDatabase) {
         super.onOpen(db)
-        try {
-            db.execSQL("ALTER TABLE ${DbConstants.TABLE_USERS} ADD COLUMN password TEXT NOT NULL DEFAULT 'password123'")
-        } catch (e: Exception) {
-            // Ignored if column exists
-        }
         try {
             db.execSQL("ALTER TABLE ${DbConstants.TABLE_STUDENT_PROFILES} ADD COLUMN photoUrl TEXT")
         } catch (e: Exception) {

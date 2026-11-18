@@ -1,8 +1,8 @@
 import React from 'react';
-import { Menu, Database, Bell, RefreshCw, Sparkles } from 'lucide-react';
+import { Menu, Database, Bell, RefreshCw, Sparkles, LogOut } from 'lucide-react';
 import { SUPABASE_PROJECT_ID } from '../lib/supabase';
 
-export function Header({ title, subtitle, onOpenMobile, supabaseStatus, onOpenSupabaseModal, onRefreshData, isRefreshing }) {
+export function Header({ title, subtitle, onOpenMobile, supabaseStatus, onOpenSupabaseModal, onRefreshData, isRefreshing, onLogout }) {
   const isReady = supabaseStatus?.connected && supabaseStatus?.tablesExist;
 
   return (
@@ -75,6 +75,16 @@ export function Header({ title, subtitle, onOpenMobile, supabaseStatus, onOpenSu
             <div className="text-[10px] text-slate-500 font-medium leading-tight">Administrator</div>
           </div>
         </div>
+
+        {onLogout && (
+          <button
+            onClick={onLogout}
+            className="p-2 rounded-xl text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors ml-1"
+            title="Log Out of Administrator Portal"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
+        )}
       </div>
     </header>
   );

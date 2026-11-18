@@ -228,9 +228,9 @@ object DatabaseInitializer {
         insertDeptFee(db, "Civil Eng", 30)
     }
 
-    private fun insertUser(db: SQLiteDatabase, id: String, name: String, email: String, role: String, identifier: String, password: String = "password123") {
+    private fun insertUser(db: SQLiteDatabase, id: String, name: String, email: String, role: String, identifier: String) {
         val cv = ContentValues().apply {
-            put("id", id); put("name", name); put("email", email); put("password", password); put("role", role); put("identifier", identifier)
+            put("id", id); put("name", name); put("email", email); put("role", role); put("identifier", identifier)
         }
         db.insertWithOnConflict(DbConstants.TABLE_USERS, null, cv, SQLiteDatabase.CONFLICT_REPLACE)
     }

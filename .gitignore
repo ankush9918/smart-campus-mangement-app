@@ -1,6 +1,7 @@
 # Android & Gradle
 *.iml
 .gradle/
+.kotlin/
 /local.properties
 /.idea/
 .idea/
@@ -38,3 +39,29 @@ __pycache__/
 *.tmp
 *.log
 Thumbs.db
+
+# api keys
+.env
+.env.*
+!.env.example
+
+# Backups & dumps
+backups/
+*.dump
+*.sql.bak
+
+# Keystores & release artifacts
+*.jks
+*.keystore
+smartcollege-key
+*.p12
+*.apk
+*.aab
+smartcollege/keystore/
+keystore/
+signing.properties
+
+
+# Supabase temporary files
+supabase/.temp/
+

@@ -8,27 +8,12 @@ import com.vvit.smartcollege.data.model.UserRole
 
 class AuthDao(private val db: SQLiteDatabase) {
 
+    /**
+     * Passwords and password hashes are NEVER stored or verified in local SQLite.
+     * All authentication is strictly delegated to Supabase Auth.
+     */
     fun authenticate(emailOrIdentifier: String, password: String, role: UserRole): User? {
-        val input = emailOrIdentifier.trim()
-        val cursor = db.query(
-            DbConstants.TABLE_USERS,
-            null,
-            "(LOWER(email) = LOWER(?) OR UPPER(identifier) = UPPER(?) OR id = ?) AND password = ? AND role = ?",
-            arrayOf(input, input, input, password, role.name),
-            null, null, null
-        )
-        return cursor.use {
-            if (it.moveToFirst()) {
-                User(
-                    id = it.getString(it.getColumnIndexOrThrow("id")),
-                    name = it.getString(it.getColumnIndexOrThrow("name")),
-                    email = it.getString(it.getColumnIndexOrThrow("email")),
-                    role = UserRole.valueOf(it.getString(it.getColumnIndexOrThrow("role"))),
-                    avatarUrl = it.getString(it.getColumnIndexOrThrow("avatarUrl")),
-                    identifier = it.getString(it.getColumnIndexOrThrow("identifier"))
-                )
-            } else null
-        }
+        return null
     }
 
     fun isEmailRegistered(email: String): Boolean {
@@ -97,12 +82,11 @@ class AuthDao(private val db: SQLiteDatabase) {
         }
     }
 
-    fun insertOrUpdateUser(user: User, password: String = "password123") {
+    fun insertOrUpdateUser(user: User) {
         val cv = ContentValues().apply {
             put("id", user.id)
             put("name", user.name)
             put("email", user.email)
-            put("password", password)
             put("role", user.role.name)
             put("identifier", user.identifier)
             put("avatarUrl", user.avatarUrl)
@@ -112,18 +96,16 @@ class AuthDao(private val db: SQLiteDatabase) {
 
     fun registerUser(
         user: User,
-        password: String,
         department: String = "Computer Science",
         phone: String = "+91 98765 00000"
     ): Boolean {
         db.beginTransaction()
         try {
-            // 1. Insert into users table
+            // 1. Insert into users table (Cached profile data only)
             val ucv = ContentValues().apply {
                 put("id", user.id)
                 put("name", user.name)
                 put("email", user.email)
-                put("password", password)
                 put("role", user.role.name)
                 put("identifier", user.identifier)
                 put("avatarUrl", user.avatarUrl)
@@ -281,10 +263,7 @@ class AuthDao(private val db: SQLiteDatabase) {
     }
 
     fun updatePasswordByEmail(email: String, newPassword: String): Boolean {
-        val cv = ContentValues().apply {
-            put("password", newPassword)
-        }
-        val rows = db.update(DbConstants.TABLE_USERS, cv, "LOWER(email) = LOWER(?)", arrayOf(email.trim().lowercase()))
-        return rows > 0
+        // Passwords are exclusively managed by Supabase Auth; no local SQLite mutation
+        return true
     }
 }

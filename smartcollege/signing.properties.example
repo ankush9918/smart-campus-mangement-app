@@ -1,0 +1,7 @@
+# Example signing configuration for Android release builds
+# DO NOT commit signing.properties containing real credentials to Git!
+# Copy this file to signing.properties and fill in your actual credentials.
+KEYSTORE_PATH=keystore/smartcollege-release.jks
+KEYSTORE_PASSWORD=YourSecureKeystorePassword
+KEY_ALIAS=smartcollege-release
+KEY_PASSWORD=YourSecureKeyPassword

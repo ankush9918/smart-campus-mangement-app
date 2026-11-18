@@ -54,8 +54,9 @@ object SupabaseApiClient {
         conn.requestMethod = method
         conn.connectTimeout = timeoutMs
         conn.readTimeout = timeoutMs
+        val token = getAuthToken()
         conn.setRequestProperty("apikey", PUBLISHABLE_KEY)
-        conn.setRequestProperty("Authorization", "Bearer $PUBLISHABLE_KEY")
+        conn.setRequestProperty("Authorization", "Bearer $token")
         conn.setRequestProperty("Accept", "application/json")
 
         if (method in listOf("POST", "PUT", "PATCH")) {
@@ -78,6 +79,10 @@ object SupabaseApiClient {
             }
 
             val code = conn.responseCode
+            if (code == 401) {
+                Log.w(TAG, "HTTP 401 Unauthorized encountered on $endpoint. Clearing auth token.")
+                setAuthToken(null)
+            }
             if (code in 200..299) {
                 val reader = BufferedReader(InputStreamReader(conn.inputStream, "UTF-8"))
                 val response = reader.readText()
@@ -94,6 +99,91 @@ object SupabaseApiClient {
         } finally {
             conn?.disconnect()
         }
+    }
+
+    /**
+     * Execute remote RPC procedure on Supabase REST endpoint
+     */
+    suspend fun executeRpc(functionName: String, paramsJson: JSONObject): JSONObject? = withContext(Dispatchers.IO) {
+        var conn: HttpURLConnection? = null
+        try {
+            val url = URL("$BASE_URL/rpc/$functionName")
+            conn = url.openConnection() as HttpURLConnection
+            conn.requestMethod = "POST"
+            conn.connectTimeout = 5000
+            conn.readTimeout = 5000
+            val token = getAuthToken()
+            conn.setRequestProperty("apikey", PUBLISHABLE_KEY)
+            conn.setRequestProperty("Authorization", "Bearer $token")
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.setRequestProperty("Accept", "application/json")
+            conn.doOutput = true
+
+            OutputStreamWriter(conn.outputStream, "UTF-8").use { writer ->
+                writer.write(paramsJson.toString())
+                writer.flush()
+            }
+
+            val code = conn.responseCode
+            if (code == 401) {
+                Log.w(TAG, "HTTP 401 Unauthorized encountered on RPC $functionName. Clearing auth token.")
+                setAuthToken(null)
+            }
+
+            if (code in 200..299) {
+                val reader = BufferedReader(InputStreamReader(conn.inputStream, "UTF-8"))
+                val text = reader.readText()
+                reader.close()
+                if (text.isNotBlank()) {
+                    if (text.trim().startsWith("{")) JSONObject(text)
+                    else JSONObject().put("result", text)
+                } else JSONObject()
+            } else {
+                val err = conn.errorStream?.bufferedReader()?.use { it.readText() }
+                Log.w(TAG, "RPC $functionName returned HTTP $code: $err")
+                if (err != null && err.trim().startsWith("{")) JSONObject(err) else null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "RPC $functionName exception: ${e.message}")
+            null
+        } finally {
+            conn?.disconnect()
+        }
+    }
+
+    /**
+     * Request a server-side OTP for password reset (rate-limited, cryptographically random, expires in 10 mins).
+     */
+    suspend fun requestPasswordResetOtp(email: String, phoneDigits: String = ""): JSONObject? = withContext(Dispatchers.IO) {
+        val params = JSONObject().apply {
+            put("target_email", email.trim().lowercase())
+            put("phone_digits", phoneDigits.trim())
+        }
+        executeRpc("request_password_reset_otp", params)
+    }
+
+    /**
+     * Verify the entered password reset OTP server-side against bcrypt hash.
+     * Returns reset_token on success, or error on invalid/expired/exhausted attempts.
+     */
+    suspend fun verifyPasswordResetOtp(email: String, otp: String): JSONObject? = withContext(Dispatchers.IO) {
+        val params = JSONObject().apply {
+            put("target_email", email.trim().lowercase())
+            put("entered_otp", otp.trim())
+        }
+        executeRpc("verify_password_reset_otp", params)
+    }
+
+    /**
+     * Complete password reset using single-use reset_token and validated password (>= 8 chars with letter & digit).
+     */
+    suspend fun completePasswordReset(email: String, resetToken: String, newPassword: String): JSONObject? = withContext(Dispatchers.IO) {
+        val params = JSONObject().apply {
+            put("target_email", email.trim().lowercase())
+            put("reset_token", resetToken.trim())
+            put("new_password", newPassword)
+        }
+        executeRpc("complete_password_reset", params)
     }
 
     /**
@@ -1178,8 +1268,9 @@ object SupabaseApiClient {
             conn.requestMethod = "POST"
             conn.connectTimeout = 20000
             conn.readTimeout = 20000
+            val token = getAuthToken()
             conn.setRequestProperty("apikey", PUBLISHABLE_KEY)
-            conn.setRequestProperty("Authorization", "Bearer $PUBLISHABLE_KEY")
+            conn.setRequestProperty("Authorization", "Bearer $token")
             conn.setRequestProperty("Content-Type", mimeType.ifBlank { "application/octet-stream" })
             conn.setRequestProperty("x-upsert", "true")
             conn.doOutput = true

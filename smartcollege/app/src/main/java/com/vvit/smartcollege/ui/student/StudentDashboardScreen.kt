@@ -360,6 +360,17 @@ fun StudentDashboardScreen(
                             style = Typography.bodySmall.copy(color = TextSecondary, fontSize = 11.sp),
                             maxLines = 2
                         )
+                        if (notice.publishedBy.isNotBlank()) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "By: ${notice.publishedBy}",
+                                style = Typography.labelSmall.copy(
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = PrimaryNavy,
+                                    fontSize = 10.sp
+                                )
+                            )
+                        }
                     }
                 }
                 Spacer(modifier = Modifier.height(16.dp))

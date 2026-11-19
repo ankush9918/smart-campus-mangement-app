@@ -210,7 +210,19 @@ fun TeacherScheduleScreen(
 ) {
     val profile by viewModel.profile.collectAsState()
     val schedule by viewModel.schedule.collectAsState()
-    var selectedDay by remember { mutableStateOf("Mon") }
+    val currentDayFromCalendar = remember {
+        val cal = java.util.Calendar.getInstance()
+        when (cal.get(java.util.Calendar.DAY_OF_WEEK)) {
+            java.util.Calendar.MONDAY -> "Mon"
+            java.util.Calendar.TUESDAY -> "Tue"
+            java.util.Calendar.WEDNESDAY -> "Wed"
+            java.util.Calendar.THURSDAY -> "Thu"
+            java.util.Calendar.FRIDAY -> "Fri"
+            java.util.Calendar.SATURDAY -> "Sat"
+            else -> "Mon"
+        }
+    }
+    var selectedDay by remember { mutableStateOf(currentDayFromCalendar) }
     val days = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
     val filteredSchedule = remember(selectedDay, schedule) {
         schedule.filter { it.dayOfWeek.equals(selectedDay, ignoreCase = true) }

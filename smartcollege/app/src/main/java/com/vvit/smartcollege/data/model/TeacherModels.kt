@@ -27,11 +27,13 @@ data class StudentRosterItem(
     val phone: String = "",
     val department: String = "Information Technology",
     val currentSemester: String = "Semester 3 (Year 2)",
-    val attendancePercentage: Int = 85,
-    val cgpa: Double = 8.4,
+    val attendancePercentage: Int = 0,
+    val cgpa: Double = 0.0,
     val guardianName: String = "Guardian / Parent",
     val guardianContact: String = "+91 98765 43210",
-    val photoUrl: String? = null
+    val photoUrl: String? = null,
+    val totalClasses: Int = 0,
+    val attendedClasses: Int = 0
 )
 
 data class TeacherSharedMaterial(

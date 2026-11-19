@@ -259,17 +259,18 @@ export function StudentsPage({
         }
       }
 
-      // Convert attendance and CGPA to proper numeric values
+      // Convert attendance and CGPA to proper numeric values (starts at 0% for fresh enrollment)
       const numericAttendance = formData.attendance_rate !== '' && !isNaN(parseFloat(formData.attendance_rate))
         ? parseFloat(formData.attendance_rate)
-        : (editingStudent ? (editingStudent.attendance_rate ?? 85) : 85);
+        : (editingStudent ? (editingStudent.attendance_rate ?? 0) : 0);
 
       const numericCgpa = formData.cgpa !== '' && !isNaN(parseFloat(formData.cgpa))
         ? parseFloat(formData.cgpa)
-        : (editingStudent ? (editingStudent.cgpa ?? 8.0) : 8.0);
+        : (editingStudent ? (editingStudent.cgpa ?? 0.0) : 0.0);
 
       const studentPayload = {
         ...formData,
+        department: formData.department || 'Information Technology',
         photo_url: finalPhotoUrl,
         attendance_rate: numericAttendance,
         cgpa: numericCgpa

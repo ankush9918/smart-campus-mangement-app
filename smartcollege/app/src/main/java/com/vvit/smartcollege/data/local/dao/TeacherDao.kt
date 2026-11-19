@@ -75,6 +75,22 @@ class TeacherDao(private val db: SQLiteDatabase) {
         return list
     }
 
+    fun saveSchedule(scheduleList: List<TeacherScheduleItem>) {
+        db.delete(DbConstants.TABLE_TEACHER_SCHEDULE, null, null)
+        for (item in scheduleList) {
+            val cv = ContentValues().apply {
+                put("id", item.id)
+                put("time", item.time)
+                put("subjectName", item.subjectName)
+                put("room", item.room)
+                put("section", item.section)
+                put("lectureType", item.lectureType)
+                put("dayOfWeek", item.dayOfWeek)
+            }
+            db.insert(DbConstants.TABLE_TEACHER_SCHEDULE, null, cv)
+        }
+    }
+
     fun getAttendanceRoster(): List<StudentRosterItem> {
         val list = mutableListOf<StudentRosterItem>()
         val cursor = db.query(DbConstants.TABLE_ATTENDANCE_ROSTER, null, null, null, null, null, null)
@@ -107,7 +123,8 @@ class TeacherDao(private val db: SQLiteDatabase) {
                 var department = if (deptCol >= 0 && !it.isNull(deptCol)) it.getString(deptCol) else "Information Technology"
                 var semester = if (semCol >= 0 && !it.isNull(semCol)) it.getString(semCol) else "Semester 3 (Year 2)"
                 var cgpa = if (cgpaCol >= 0 && !it.isNull(cgpaCol)) it.getDouble(cgpaCol) else 8.0
-                var attendancePct = if (attCol >= 0 && !it.isNull(attCol)) it.getInt(attCol) else 85
+                var attendancePct = if (attCol >= 0 && !it.isNull(attCol)) it.getInt(attCol) else 0
+                if (attendancePct in 60..95) attendancePct = 0
                 var guardianName = if (gNameCol >= 0 && !it.isNull(gNameCol)) it.getString(gNameCol) else "Guardian / Parent"
                 var guardianContact = if (gPhoneCol >= 0 && !it.isNull(gPhoneCol)) it.getString(gPhoneCol) else "+91 98765 43210"
                 var photoUrl = rowPhoto
@@ -323,6 +340,21 @@ class TeacherDao(private val db: SQLiteDatabase) {
         return list
     }
 
+    fun saveAtRiskStudents(list: List<AtRiskStudent>) {
+        db.delete(DbConstants.TABLE_AT_RISK_STUDENTS, null, null)
+        for (item in list) {
+            val cv = ContentValues().apply {
+                put("id", item.id)
+                put("studentName", item.studentName)
+                put("rollNo", item.rollNo)
+                put("reason", item.reason)
+                put("attendancePercent", item.attendancePercent)
+                put("isReminded", if (item.isReminded) 1 else 0)
+            }
+            db.insert(DbConstants.TABLE_AT_RISK_STUDENTS, null, cv)
+        }
+    }
+
     fun updateAtRiskReminded(id: String) {
         val cv = ContentValues().apply {
             put("isReminded", 1)
@@ -346,6 +378,7 @@ class TeacherDao(private val db: SQLiteDatabase) {
             put("description", notice.description)
             put("isUrgent", if (notice.isUrgent) 1 else 0)
             put("date", notice.date)
+            put("publishedBy", notice.publishedBy)
         }
         db.insert(DbConstants.TABLE_NOTICES, null, cv)
     }
@@ -361,6 +394,7 @@ class TeacherDao(private val db: SQLiteDatabase) {
                 put("description", notice.description)
                 put("isUrgent", if (notice.isUrgent) 1 else 0)
                 put("date", notice.date)
+                put("publishedBy", notice.publishedBy)
             }
             val count = db.update(DbConstants.TABLE_NOTICES, cv, "id = ?", arrayOf(notice.id))
             if (count == 0) {
@@ -373,6 +407,7 @@ class TeacherDao(private val db: SQLiteDatabase) {
         val list = mutableListOf<NoticeItem>()
         val cursor = db.query(DbConstants.TABLE_NOTICES, null, null, null, null, null, "rowid DESC")
         cursor.use {
+            val pubCol = it.getColumnIndex("publishedBy")
             while (it.moveToNext()) {
                 val rawDesc = it.getString(it.getColumnIndexOrThrow("description"))
                 var cleanDesc = rawDesc
@@ -389,6 +424,7 @@ class TeacherDao(private val db: SQLiteDatabase) {
                     } catch (_: Exception) {}
                 }
 
+                val pubBy = if (pubCol >= 0 && !it.isNull(pubCol)) it.getString(pubCol) else ""
                 list.add(
                     NoticeItem(
                         id = it.getString(it.getColumnIndexOrThrow("id")),
@@ -397,7 +433,8 @@ class TeacherDao(private val db: SQLiteDatabase) {
                         timeAgo = it.getString(it.getColumnIndexOrThrow("timeAgo")),
                         description = cleanDesc,
                         isUrgent = it.getInt(it.getColumnIndexOrThrow("isUrgent")) == 1,
-                        date = it.getString(it.getColumnIndexOrThrow("date"))
+                        date = it.getString(it.getColumnIndexOrThrow("date")),
+                        publishedBy = pubBy
                     )
                 )
             }

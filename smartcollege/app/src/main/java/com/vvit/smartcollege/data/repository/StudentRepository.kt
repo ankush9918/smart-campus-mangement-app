@@ -21,14 +21,32 @@ class StudentRepository(
 
     private val _studentProfile = MutableStateFlow(
         run {
+            val session = (DatabaseProvider.sessionManager ?: SessionManager.get())?.getSession()
+                ?: MockDatabase.currentUser.value
+            val sessionName = session?.name?.takeIf { it.isNotBlank() && it != "Student User" && it != "Aditya Sharma" }
+            val sessionIdentifier = session?.identifier?.takeIf { it.isNotBlank() } ?: session?.email
+
             val local = studentDao?.getStudentProfile()
             val mock = MockDatabase.studentProfile.value
-            if (local != null && !local.photoUrl.isNullOrBlank()) {
+
+            val base = if (local != null && local.name.isNotBlank() && local.name != "Aditya Sharma") {
                 local
-            } else if (!mock.photoUrl.isNullOrBlank()) {
+            } else if (mock.name.isNotBlank() && mock.name != "Aditya Sharma") {
                 mock
             } else {
-                local ?: mock
+                SupabaseApiClient.resolveStudentProfile(sessionIdentifier ?: "ankush")
+            }
+
+            if (sessionName != null && base.name != sessionName) {
+                base.copy(
+                    name = sessionName,
+                    rollNo = session?.identifier?.ifBlank { base.rollNo } ?: base.rollNo,
+                    email = session?.email?.ifBlank { base.email } ?: base.email
+                )
+            } else if (base.name == "Aditya Sharma") {
+                SupabaseApiClient.resolveStudentProfile(sessionIdentifier ?: "ankush")
+            } else {
+                base
             }
         }
     )
@@ -87,6 +105,43 @@ class StudentRepository(
 
     init {
         CoroutineScope(Dispatchers.IO).launch {
+            MockDatabase.studentProfile.collect { updatedProfile ->
+                if (updatedProfile.name != "Aditya Sharma") {
+                    _studentProfile.value = updatedProfile
+                }
+            }
+        }
+        CoroutineScope(Dispatchers.IO).launch {
+            MockDatabase.currentUser.collect { user ->
+                if (user != null && user.role == UserRole.STUDENT && user.name.isNotBlank() && user.name != "Aditya Sharma" && user.name != "Student User") {
+                    val cur = _studentProfile.value
+                    if (cur.name != user.name) {
+                        val updated = cur.copy(
+                            name = user.name,
+                            rollNo = user.identifier.ifBlank { cur.rollNo },
+                            email = user.email.ifBlank { cur.email }
+                        )
+                        _studentProfile.value = updated
+                        MockDatabase.studentProfile.value = updated
+                        studentDao?.saveOrUpdateStudentProfile(updated)
+                    }
+                }
+            }
+        }
+        CoroutineScope(Dispatchers.IO).launch {
+            MockDatabase.studentAttendance.collect { updatedAttendance ->
+                _attendanceList.value = updatedAttendance
+            }
+        }
+        CoroutineScope(Dispatchers.IO).launch {
+            MockDatabase.notices.collect { updatedNotices ->
+                if (updatedNotices.isNotEmpty()) {
+                    _notices.value = updatedNotices
+                    studentDao?.saveNotices(updatedNotices)
+                }
+            }
+        }
+        CoroutineScope(Dispatchers.IO).launch {
             refreshFaculty()
             refreshRemoteData()
         }
@@ -112,20 +167,29 @@ class StudentRepository(
                 ?: MockDatabase.currentUser.value
             val email = session?.email
             val authId = session?.id
+            val identifier = session?.identifier
+            val lookupKey = email?.takeIf { it.isNotBlank() } ?: identifier
 
-            // 1. Fetch live student profile from Supabase
-            val remoteProfile = SupabaseApiClient.fetchStudentProfile(email, authId)
-            if (remoteProfile != null) {
-                // 2. Fetch live attendance for this student (calculated from actual records)
-                val remoteAttendance = SupabaseApiClient.fetchStudentAttendance(
-                    studentId = remoteProfile.id,
-                    rollNumber = remoteProfile.rollNo,
-                    overallPercentage = remoteProfile.attendancePercentage
-                )
-                val updatedProfile = remoteProfile.copy(attendancePercentage = remoteAttendance.calculatedPercentage)
-                _studentProfile.value = updatedProfile
-                MockDatabase.studentProfile.value = updatedProfile
-                studentDao?.saveOrUpdateStudentProfile(updatedProfile)
+            // 1. Fetch live student profile from Supabase or authentic registry
+            val remoteProfile = SupabaseApiClient.fetchStudentProfile(lookupKey, authId)
+                ?: SupabaseApiClient.resolveStudentProfile(lookupKey ?: session?.name ?: "ankush")
+
+            val effectiveName = session?.name?.takeIf { it.isNotBlank() && it != "Student User" && it != "Aditya Sharma" }
+                ?: (if (remoteProfile.name.isNotBlank() && remoteProfile.name != "Student User" && remoteProfile.name != "Aditya Sharma") remoteProfile.name else SupabaseApiClient.deriveStudentName(lookupKey ?: "ankush"))
+
+            // 2. Fetch live attendance for this student (calculated from actual records)
+            val remoteAttendance = SupabaseApiClient.fetchStudentAttendance(
+                studentId = remoteProfile.id,
+                rollNumber = remoteProfile.rollNo,
+                overallPercentage = remoteProfile.attendancePercentage
+            )
+            val updatedProfile = remoteProfile.copy(
+                name = effectiveName,
+                attendancePercentage = remoteAttendance.calculatedPercentage
+            )
+            _studentProfile.value = updatedProfile
+            MockDatabase.studentProfile.value = updatedProfile
+            studentDao?.saveOrUpdateStudentProfile(updatedProfile)
 
                 if (remoteAttendance.subjects.isNotEmpty()) {
                     _attendanceList.value = remoteAttendance.subjects
@@ -158,7 +222,6 @@ class StudentRepository(
                     _studyMaterials.value = localMat
                     MockDatabase.studyMaterials.value = localMat
                 }
-            }
 
             // 5. Timetable
             val remoteTimetable = SupabaseApiClient.fetchStudentTimetable()
@@ -170,16 +233,39 @@ class StudentRepository(
             refreshFaculty()
 
             // 6. Circulars / Notices intended for STUDENTS (or ALL)
-            val remoteNotices = SupabaseApiClient.fetchCirculars("STUDENTS")
-            if (!remoteNotices.isNullOrEmpty()) {
-                studentDao?.saveNotices(remoteNotices)
-                _notices.value = remoteNotices
-                MockDatabase.notices.value = remoteNotices
-            } else {
-                val localNotices = studentDao?.getNotices() ?: emptyList()
-                _notices.value = localNotices
-                MockDatabase.notices.value = localNotices
+            val remoteNotices = SupabaseApiClient.fetchCirculars("STUDENTS") ?: emptyList()
+            val localNotices = studentDao?.getNotices() ?: MockDatabase.notices.value
+
+            // Filter out JSON-based internal study materials and raw assignment payloads from circulars
+            val isGenuineNotice: (NoticeItem) -> Boolean = { item ->
+                !item.category.equals("STUDY_MATERIAL", ignoreCase = true) &&
+                !item.description.trim().startsWith("{\"instructions\"") &&
+                !item.description.trim().startsWith("{\"title\"")
             }
+
+            val cleanLocal = localNotices.filter(isGenuineNotice)
+            val cleanRemote = remoteNotices.filter(isGenuineNotice)
+
+            val combined = mutableListOf<NoticeItem>()
+            val seen = mutableSetOf<String>()
+
+            // Local notices first so teacher broadcasts (like "class cancel") remain at the top
+            for (n in cleanLocal) {
+                if (seen.add(n.id) && seen.add(n.title.trim().lowercase())) {
+                    combined.add(n)
+                }
+            }
+            // Remote circulars next
+            for (n in cleanRemote) {
+                if (seen.add(n.id) && seen.add(n.title.trim().lowercase())) {
+                    combined.add(n)
+                }
+            }
+
+            val finalList = if (combined.isNotEmpty()) combined else localNotices
+            _notices.value = finalList
+            MockDatabase.notices.value = finalList
+            studentDao?.saveNotices(finalList)
         } catch (e: Exception) {
             // Silently fallback to SQLite local database
         }

@@ -111,7 +111,8 @@ data class NoticeItem(
     val timeAgo: String,
     val description: String,
     val isUrgent: Boolean = false,
-    val date: String
+    val date: String,
+    val publishedBy: String = ""
 ) {
     val displayDescription: String
         get() {

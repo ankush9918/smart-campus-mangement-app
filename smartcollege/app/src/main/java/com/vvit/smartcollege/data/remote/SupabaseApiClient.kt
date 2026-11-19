@@ -129,6 +129,7 @@ object SupabaseApiClient {
                     } catch (_: Exception) {}
                 }
 
+                val pubBy = obj.optString("published_by", "").trim()
                 list.add(
                     NoticeItem(
                         id = obj.optString("id", "cir_$i"),
@@ -137,7 +138,8 @@ object SupabaseApiClient {
                         timeAgo = obj.optString("date", "Today"),
                         description = cleanDesc,
                         isUrgent = obj.optBoolean("is_urgent", false),
-                        date = obj.optString("date", "2026-10-03")
+                        date = obj.optString("date", "2026-10-03"),
+                        publishedBy = pubBy
                     )
                 )
             }
@@ -451,15 +453,216 @@ object SupabaseApiClient {
         }
     }
 
+    val AUTHENTIC_DEFAULT_STUDENTS = listOf(
+        StudentProfile(
+            id = "std_1791009612955_3hhbwb",
+            name = "Ankush",
+            rollNo = "25084001312",
+            email = "ankush251312@recmainpuri.in",
+            phone = "+91 98765 43210",
+            dateOfBirth = "14th August 2003",
+            bloodGroup = "O+",
+            department = "Information Technology",
+            currentSemester = "Semester 3 (Year 2)",
+            section = "Section A",
+            admissionYear = "2023",
+            guardianName = "Guardian / Parent",
+            guardianRelationship = "Father",
+            guardianContact = "+91 98765 43210",
+            cgpa = 7.3,
+            attendancePercentage = 0,
+            photoUrl = "https://easrebumarwkloibtemf.supabase.co/storage/v1/object/public/student-photos/std_1791009612955_3hhbwb.jpg"
+        ),
+        StudentProfile(
+            id = "std_1791018184263_gq8k83",
+            name = "Ankur",
+            rollNo = "2508400130011",
+            email = "ankur251311@recmainpuri.in",
+            phone = "+91 98765 43211",
+            dateOfBirth = "22nd September 2003",
+            bloodGroup = "B+",
+            department = "Information Technology",
+            currentSemester = "Semester 3 (Year 2)",
+            section = "Section A",
+            admissionYear = "2023",
+            guardianName = "Guardian / Parent",
+            guardianRelationship = "Father",
+            guardianContact = "+91 98765 43211",
+            cgpa = 6.9,
+            attendancePercentage = 0,
+            photoUrl = "https://easrebumarwkloibtemf.supabase.co/storage/v1/object/public/student-photos/std_1791018184263_gq8k83.jpg"
+        ),
+        StudentProfile(
+            id = "std_1791010841660_9fx4k9",
+            name = "Ajay",
+            rollNo = "2508400130004",
+            email = "ajay251304@recmainpuri.in",
+            phone = "+91 98765 43212",
+            dateOfBirth = "10th January 2003",
+            bloodGroup = "A+",
+            department = "Information Technology",
+            currentSemester = "Semester 3 (Year 2)",
+            section = "Section A",
+            admissionYear = "2023",
+            guardianName = "Guardian / Parent",
+            guardianRelationship = "Father",
+            guardianContact = "+91 98765 43212",
+            cgpa = 8.0,
+            attendancePercentage = 0,
+            photoUrl = "https://easrebumarwkloibtemf.supabase.co/storage/v1/object/public/student-photos/std_1791010841660_9fx4k9.jpg"
+        ),
+        StudentProfile(
+            id = "std_1791280766460_uwebco",
+            name = "Anuj",
+            rollNo = "2508400130015",
+            email = "anuj251215@recmainpuri.in",
+            phone = "+91 98765 43213",
+            dateOfBirth = "5th March 2003",
+            bloodGroup = "AB+",
+            department = "Information Technology",
+            currentSemester = "Semester 3 (Year 2)",
+            section = "Section A",
+            admissionYear = "2023",
+            guardianName = "Guardian / Parent",
+            guardianRelationship = "Father",
+            guardianContact = "+91 98765 43213",
+            cgpa = 8.0,
+            attendancePercentage = 0,
+            photoUrl = "https://easrebumarwkloibtemf.supabase.co/storage/v1/object/public/student-photos/std_1791280766460_uwebco.jpg"
+        )
+    )
+
+    fun deriveStudentName(raw: String): String {
+        val clean = raw.trim()
+        if (clean.isBlank()) return "Ankush"
+        if (clean.equals("student", ignoreCase = true) ||
+            clean.equals("student.vvit@college.edu", ignoreCase = true) ||
+            clean.equals("std_1", ignoreCase = true) ||
+            clean.equals("VVIT/CS/2021/045", ignoreCase = true)
+        ) {
+            return "Ankush"
+        }
+        val part = if (clean.contains("@")) clean.substringBefore("@") else clean
+        val words = part.split(".", "_", "-", " ").filter { it.isNotBlank() }
+        val nameWords = words.map { word ->
+            val stripped = word.replace(Regex("\\d+$"), "").trim()
+            if (stripped.isNotBlank()) stripped else word
+        }
+        val formatted = nameWords.joinToString(" ") { word ->
+            word.lowercase().replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+        }.trim()
+
+        return if (formatted.isNotBlank() && !formatted.all { it.isDigit() }) {
+            formatted
+        } else if (clean.all { it.isDigit() }) {
+            "Student $clean"
+        } else {
+            clean.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+        }
+    }
+
+    fun resolveStudentProfile(identifier: String): StudentProfile {
+        val clean = identifier.trim()
+        if (clean.isBlank()) return AUTHENTIC_DEFAULT_STUDENTS[0]
+
+        // 1. Check Authentic Default Students
+        val matched = AUTHENTIC_DEFAULT_STUDENTS.find {
+            it.rollNo.equals(clean, ignoreCase = true) ||
+            it.email.equals(clean, ignoreCase = true) ||
+            it.name.equals(clean, ignoreCase = true) ||
+            it.id.equals(clean, ignoreCase = true) ||
+            clean.contains(it.name, ignoreCase = true) ||
+            clean.contains(it.rollNo, ignoreCase = true) ||
+            it.email.startsWith(clean, ignoreCase = true)
+        }
+        if (matched != null) return matched
+
+        // 2. Check Local Attendance Roster
+        try {
+            val roster = com.vvit.smartcollege.data.local.DatabaseProvider.teacherDao?.getAttendanceRoster()
+                ?: com.vvit.smartcollege.data.repository.MockDatabase.teacherAttendanceRoster.value
+            val rStudent = roster.find {
+                it.rollNo.equals(clean, ignoreCase = true) ||
+                it.email.equals(clean, ignoreCase = true) ||
+                it.studentName.equals(clean, ignoreCase = true) ||
+                it.id.equals(clean, ignoreCase = true) ||
+                clean.contains(it.studentName, ignoreCase = true) ||
+                it.email.startsWith(clean, ignoreCase = true)
+            }
+            if (rStudent != null) {
+                val formattedName = rStudent.studentName.split(" ").joinToString(" ") { word ->
+                    word.lowercase().replaceFirstChar { char -> if (char.isLowerCase()) char.titlecase() else char.toString() } 
+                }
+                return StudentProfile(
+                    id = rStudent.id,
+                    name = formattedName,
+                    rollNo = rStudent.rollNo,
+                    email = rStudent.email,
+                    phone = rStudent.phone,
+                    dateOfBirth = "14th August 2003",
+                    bloodGroup = "O+",
+                    department = rStudent.department.ifBlank { "Information Technology" },
+                    currentSemester = rStudent.currentSemester.ifBlank { "Semester 3 (Year 2)" },
+                    section = rStudent.section.ifBlank { "Section A" },
+                    admissionYear = "2023",
+                    guardianName = rStudent.guardianName.ifBlank { "Guardian / Parent" },
+                    guardianRelationship = "Father",
+                    guardianContact = rStudent.guardianContact.ifBlank { "+91 98765 43210" },
+                    cgpa = rStudent.cgpa,
+                    attendancePercentage = rStudent.attendancePercentage,
+                    photoUrl = rStudent.photoUrl
+                )
+            }
+        } catch (_: Exception) {}
+
+        // 3. Fallback: dynamically derive from identifier
+        val derivedName = deriveStudentName(clean)
+        val roll = if (clean.all { it.isDigit() }) clean else "25084001312"
+        val email = if (clean.contains("@")) clean else "$clean@recmainpuri.in"
+
+        return StudentProfile(
+            id = "std_${clean.hashCode()}",
+            name = derivedName,
+            rollNo = roll,
+            email = email,
+            phone = "+91 98765 00000",
+            dateOfBirth = "14th August 2003",
+            bloodGroup = "O+",
+            department = "Information Technology",
+            currentSemester = "Semester 3 (Year 2)",
+            section = "Section A",
+            admissionYear = "2023",
+            guardianName = "Guardian / Parent",
+            guardianRelationship = "Father",
+            guardianContact = "+91 98765 00000",
+            cgpa = 7.5,
+            attendancePercentage = 80,
+            photoUrl = null
+        )
+    }
+
     private fun fetchStudentByEmailOrAuthId(email: String?, authId: String?): JSONObject? {
         try {
             val cleanEmail = email?.trim()
             if (!cleanEmail.isNullOrBlank()) {
                 val encodedEmail = java.net.URLEncoder.encode(cleanEmail, "UTF-8")
+                // 1. By email
                 val res = executeRequest("/students?email=ilike.$encodedEmail&select=*")
                 if (res != null) {
                     val arr = JSONArray(res)
                     if (arr.length() > 0) return arr.getJSONObject(0)
+                }
+                // 2. By roll_number
+                val resRoll = executeRequest("/students?roll_number=eq.$encodedEmail&select=*")
+                if (resRoll != null) {
+                    val arrRoll = JSONArray(resRoll)
+                    if (arrRoll.length() > 0) return arrRoll.getJSONObject(0)
+                }
+                // 3. By name substring
+                val resName = executeRequest("/students?name=ilike.*$encodedEmail*&select=*")
+                if (resName != null) {
+                    val arrName = JSONArray(resName)
+                    if (arrName.length() > 0) return arrName.getJSONObject(0)
                 }
             }
             if (!authId.isNullOrBlank()) {
@@ -467,6 +670,24 @@ object SupabaseApiClient {
                 if (res != null) {
                     val arr = JSONArray(res)
                     if (arr.length() > 0) return arr.getJSONObject(0)
+                }
+            }
+            // 4. Broad scan fallback
+            val allRes = executeRequest("/students?select=*")
+            if (allRes != null && !cleanEmail.isNullOrBlank()) {
+                val arr = JSONArray(allRes)
+                for (i in 0 until arr.length()) {
+                    val item = arr.getJSONObject(i)
+                    val sEmail = item.optString("email", "")
+                    val sRoll = item.optString("roll_number", "")
+                    val sName = item.optString("name", "")
+                    if (sEmail.equals(cleanEmail, ignoreCase = true) ||
+                        sRoll.equals(cleanEmail, ignoreCase = true) ||
+                        sName.contains(cleanEmail, ignoreCase = true) ||
+                        cleanEmail.contains(sName, ignoreCase = true)
+                    ) {
+                        return item
+                    }
                 }
             }
         } catch (e: Exception) {
@@ -480,10 +701,23 @@ object SupabaseApiClient {
             val cleanEmail = email?.trim()
             if (!cleanEmail.isNullOrBlank()) {
                 val encodedEmail = java.net.URLEncoder.encode(cleanEmail, "UTF-8")
+                // 1. By email
                 val res = executeRequest("/faculty?email=ilike.$encodedEmail&select=*")
                 if (res != null) {
                     val arr = JSONArray(res)
                     if (arr.length() > 0) return arr.getJSONObject(0)
+                }
+                // 2. By employee_id
+                val resEmp = executeRequest("/faculty?employee_id=eq.$encodedEmail&select=*")
+                if (resEmp != null) {
+                    val arrEmp = JSONArray(resEmp)
+                    if (arrEmp.length() > 0) return arrEmp.getJSONObject(0)
+                }
+                // 3. By name substring
+                val resName = executeRequest("/faculty?name=ilike.*$encodedEmail*&select=*")
+                if (resName != null) {
+                    val arrName = JSONArray(resName)
+                    if (arrName.length() > 0) return arrName.getJSONObject(0)
                 }
             }
             if (!authId.isNullOrBlank()) {
@@ -503,39 +737,53 @@ object SupabaseApiClient {
      * Fetch full StudentProfile from Supabase
      */
     suspend fun fetchStudentProfile(email: String?, authId: String?): StudentProfile? = withContext(Dispatchers.IO) {
-        val obj = fetchStudentByEmailOrAuthId(email, authId) ?: return@withContext null
+        val obj = fetchStudentByEmailOrAuthId(email, authId)
+        if (obj == null) {
+            val clean = email?.trim()
+            if (!clean.isNullOrBlank()) {
+                return@withContext resolveStudentProfile(clean)
+            }
+            return@withContext null
+        }
         try {
-            val attRate = obj.optInt("attendance_rate", 85)
-            val cgpaVal = obj.optDouble("cgpa", 8.0)
-            val semInt = obj.optInt("semester", 5)
-            val secStr = obj.optString("section", "B")
+            val attRate = obj.optInt("attendance_rate", 78)
+            val cgpaVal = obj.optDouble("cgpa", 7.3)
+            val semInt = obj.optInt("semester", 3)
+            val secStr = obj.optString("section", "A")
             val photoUrlVal = if (obj.isNull("photo_url")) null else {
                 val raw = obj.optString("photo_url", "").trim()
                 if (raw.isNotBlank() && !raw.equals("null", ignoreCase = true)) raw else null
             }
 
+            val rawName = obj.optString("name", "").trim()
+            val finalName = if (rawName.isNotBlank() && rawName != "Student User" && rawName != "Aditya Sharma") {
+                rawName
+            } else {
+                deriveStudentName(email ?: "ankush")
+            }
+
             StudentProfile(
                 id = obj.optString("id", "std_${System.currentTimeMillis()}"),
-                name = obj.optString("name", "Student User"),
-                rollNo = obj.optString("roll_number", "VVIT/CS/2021/045"),
+                name = finalName,
+                rollNo = obj.optString("roll_number", "25084001312"),
                 email = obj.optString("email", email ?: ""),
-                phone = obj.optString("phone", "+91 98765 00000"),
+                phone = obj.optString("phone", "+91 98765 43210"),
                 dateOfBirth = obj.optString("date_of_birth", "14th August 2003"),
                 bloodGroup = obj.optString("blood_group", "O+"),
                 department = "Information Technology",
-                currentSemester = "Semester $semInt (Year 3)",
+                currentSemester = "Semester $semInt (Year 2)",
                 section = "Section $secStr",
-                admissionYear = obj.optString("admission_year").ifBlank { "2021" },
-                guardianName = obj.optString("guardian_name", "Guardian"),
+                admissionYear = obj.optString("admission_year").ifBlank { "2023" },
+                guardianName = obj.optString("guardian_name", "Guardian / Parent"),
                 guardianRelationship = obj.optString("guardian_relationship", "Father"),
-                guardianContact = obj.optString("guardian_phone", "+91 98111 00000"),
+                guardianContact = obj.optString("guardian_phone", "+91 98765 43210"),
                 cgpa = cgpaVal,
                 attendancePercentage = attRate,
                 photoUrl = photoUrlVal
             )
         } catch (e: Exception) {
             Log.e(TAG, "Error building StudentProfile", e)
-            null
+            email?.trim()?.let { resolveStudentProfile(it) }
         }
     }
 
@@ -616,13 +864,7 @@ object SupabaseApiClient {
                 }
             }
 
-            val calculatedRate = if (totalConductedRecords > 0) {
-                ((totalPresentRecords * 100) / totalConductedRecords).coerceIn(0, 100)
-            } else {
-                if (overallPercentage in 1..100) overallPercentage else 100
-            }
-
-            // Build list for all 6 official theory subjects
+            // Build list for all 6 official theory subjects, calculated strictly from actual session records (0-based)
             val result = officialTheorySubjects.mapIndexed { index, (name, code, _) ->
                 val master = MasterSubjectRegistry.find(code) ?: MasterSubjectRegistry.find(name)
                 val stats = subjectMap[name]
@@ -632,40 +874,40 @@ object SupabaseApiClient {
                         it.key.contains(code, ignoreCase = true)
                     }?.value
 
-                if (stats != null && stats.second > 0) {
-                    val pct = (stats.first * 100) / stats.second
-                    SubjectAttendance(
-                        id = "att_sub_${index + 1}",
-                        subjectName = master?.displayName ?: "$name ($code)",
-                        subjectCode = code,
-                        attendedClasses = stats.first,
-                        totalClasses = stats.second,
-                        percentage = pct,
-                        isAlert = pct < 75
-                    )
-                } else {
-                    SubjectAttendance(
-                        id = "att_sub_${index + 1}",
-                        subjectName = master?.displayName ?: "$name ($code)",
-                        subjectCode = code,
-                        attendedClasses = 0,
-                        totalClasses = 0,
-                        percentage = 100,
-                        isAlert = false
-                    )
-                }
+                val totalAttended = stats?.first ?: 0
+                val totalConducted = stats?.second ?: 0
+                val pct = if (totalConducted > 0) ((totalAttended * 100) / totalConducted).coerceIn(0, 100) else 0
+
+                SubjectAttendance(
+                    id = "att_sub_${index + 1}",
+                    subjectName = master?.displayName ?: "$name ($code)",
+                    subjectCode = code,
+                    attendedClasses = totalAttended,
+                    totalClasses = totalConducted,
+                    percentage = pct,
+                    isAlert = totalConducted > 0 && pct < 75
+                )
             }
+
+            val allAttendedClasses = result.sumOf { it.attendedClasses }
+            val allTotalClasses = result.sumOf { it.totalClasses }
+            val calculatedRate = if (allTotalClasses > 0) {
+                ((allAttendedClasses * 100) / allTotalClasses).coerceIn(0, 100)
+            } else {
+                0
+            }
+
             return@withContext AttendanceCalculationResult(
                 subjects = result,
                 calculatedPercentage = calculatedRate,
-                totalClasses = totalConductedRecords,
-                presentClasses = totalPresentRecords
+                totalClasses = allTotalClasses,
+                presentClasses = allAttendedClasses
             )
         } catch (e: Exception) {
             Log.e(TAG, "Error calculating attendance from records", e)
         }
 
-        // Fallback default: all 6 official theory subjects
+        // Fallback default: all 6 official theory subjects (0-0 clean start)
         val fallbackList = officialTheorySubjects.mapIndexed { index, (name, code, _) ->
             val master = MasterSubjectRegistry.find(code) ?: MasterSubjectRegistry.find(name)
             SubjectAttendance(
@@ -674,13 +916,13 @@ object SupabaseApiClient {
                 subjectCode = code,
                 attendedClasses = 0,
                 totalClasses = 0,
-                percentage = 100,
+                percentage = 0,
                 isAlert = false
             )
         }
         return@withContext AttendanceCalculationResult(
             subjects = fallbackList,
-            calculatedPercentage = if (rate in 1..100) rate else 100,
+            calculatedPercentage = 0,
             totalClasses = 0,
             presentClasses = 0
         )
@@ -1122,7 +1364,37 @@ object SupabaseApiClient {
      * Fetch TeacherProfile from Supabase
      */
     suspend fun fetchTeacherProfile(email: String?, authId: String?): TeacherProfile? = withContext(Dispatchers.IO) {
-        val obj = fetchFacultyByEmailOrAuthId(email, authId) ?: return@withContext null
+        val obj = fetchFacultyByEmailOrAuthId(email, authId)
+        if (obj == null) {
+            val clean = email?.trim()?.lowercase()
+            val defaultFac = if (!clean.isNullOrBlank()) {
+                AUTHENTIC_DEFAULT_FACULTY.find {
+                    it.email.lowercase() == clean ||
+                    it.employeeId.lowercase() == clean ||
+                    it.name.lowercase().contains(clean) ||
+                    clean.contains(it.name.lowercase())
+                }
+            } else null
+            if (defaultFac != null) {
+                return@withContext TeacherProfile(
+                    id = defaultFac.id,
+                    name = defaultFac.name,
+                    employeeId = defaultFac.employeeId,
+                    designation = defaultFac.designation,
+                    department = defaultFac.department,
+                    email = defaultFac.email,
+                    phone = defaultFac.phone,
+                    weeklyWorkloadHours = defaultFac.experienceYears * 3,
+                    activeSubjectsCount = defaultFac.subjects.size,
+                    totalStudents = 180,
+                    classesToday = 4,
+                    pendingTasks = 5,
+                    photoUrl = defaultFac.photoUrl,
+                    subjects = defaultFac.subjects
+                )
+            }
+            return@withContext null
+        }
         try {
             val photoUrlVal = if (obj.isNull("photo_url")) null else {
                 val raw = obj.optString("photo_url", "").trim()
@@ -1149,8 +1421,19 @@ object SupabaseApiClient {
                 }
             }
             if (subjectsList.isEmpty()) {
-                subjectsList.add("Computer Organization & Architecture (BCS-302)")
-                subjectsList.add("Data Structure (BCS-301)")
+                val empId = obj.optString("employee_id", "").trim()
+                val facultyName = obj.optString("name", "").trim()
+                val facultyEmail = obj.optString("email", "").trim()
+                val matchedDefault = AUTHENTIC_DEFAULT_FACULTY.find {
+                    (empId.isNotBlank() && it.employeeId.equals(empId, ignoreCase = true)) ||
+                    (facultyName.isNotBlank() && (it.name.contains(facultyName, ignoreCase = true) || facultyName.contains(it.name, ignoreCase = true))) ||
+                    (facultyEmail.isNotBlank() && it.email.equals(facultyEmail, ignoreCase = true))
+                }
+                if (matchedDefault != null && matchedDefault.subjects.isNotEmpty()) {
+                    subjectsList.addAll(matchedDefault.subjects.map { MasterSubjectRegistry.normalize(it) })
+                } else {
+                    subjectsList.add("Discrete Structure & Theory of Logic (T) (BCS-303)")
+                }
             }
 
             TeacherProfile(
@@ -1482,10 +1765,10 @@ object SupabaseApiClient {
      * with optional department-based filtering.
      */
     suspend fun fetchAllStudents(departmentFilter: String? = null): List<StudentRosterItem>? = withContext(Dispatchers.IO) {
-        val response = executeRequest("/students?select=*&order=created_at.desc") ?: return@withContext null
+        val response = executeRequest("/students?select=*") ?: return@withContext null
         try {
             val arr = JSONArray(response)
-            if (arr.length() == 0) return@withContext null
+            if (arr.length() == 0) return@withContext emptyList()
 
             val list = mutableListOf<StudentRosterItem>()
             for (i in 0 until arr.length()) {
@@ -1500,8 +1783,8 @@ object SupabaseApiClient {
                 val semInt = obj.optInt("semester", 3)
                 val secStr = obj.optString("section", "A").trim()
                 val section = if (secStr.startsWith("IT") || secStr.contains("Sem")) secStr else "IT-Sec $secStr"
-                val attRate = obj.optInt("attendance_rate", 85)
-                val cgpaVal = obj.optDouble("cgpa", 8.0)
+                val attRate = obj.optInt("attendance_rate", 0)
+                val cgpaVal = obj.optDouble("cgpa", 0.0)
                 val guardianName = obj.optString("guardian_name", "Guardian / Parent")
                 val guardianPhone = obj.optString("guardian_phone", "+91 98765 43210")
                 val photoUrlVal = if (obj.isNull("photo_url")) null else {
@@ -1529,19 +1812,7 @@ object SupabaseApiClient {
                 )
             }
 
-            // Department-based assignment filtering
-            if (!departmentFilter.isNullOrBlank() &&
-                !departmentFilter.equals("ALL", ignoreCase = true) &&
-                !departmentFilter.equals("General", ignoreCase = true)
-            ) {
-                val filtered = list.filter {
-                    it.department.equals(departmentFilter.trim(), ignoreCase = true) ||
-                    it.department.equals("Information Technology", ignoreCase = true) ||
-                    it.department.equals("General", ignoreCase = true)
-                }
-                if (filtered.isNotEmpty()) return@withContext filtered
-            }
-
+            // Return all registered students directly so admin additions are immediately visible
             list
         } catch (e: Exception) {
             Log.e(TAG, "Error parsing all students from Supabase", e)

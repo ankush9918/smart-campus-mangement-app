@@ -13,11 +13,17 @@ class StudentDao(private val db: SQLiteDatabase) {
             if (it.moveToFirst()) {
                 val photoUrlCol = it.getColumnIndex("photoUrl")
                 val photoUrl = if (photoUrlCol >= 0) it.getString(photoUrlCol) else null
+                val rawName = it.getString(it.getColumnIndexOrThrow("name"))
+                val cleanName = if (rawName.isBlank() || rawName == "Aditya Sharma") "Ankush" else rawName
+                val rawRoll = it.getString(it.getColumnIndexOrThrow("rollNo"))
+                val cleanRoll = if (cleanName == "Ankush" && (rawRoll == "VVIT/CS/2021/045" || rawRoll.isBlank())) "25084001312" else rawRoll
+                val rawEmail = it.getString(it.getColumnIndexOrThrow("email"))
+                val cleanEmail = if (cleanName == "Ankush" && (rawEmail.contains("aditya") || rawEmail.contains("vvit"))) "ankush251312@recmainpuri.in" else rawEmail
                 StudentProfile(
                     id = it.getString(it.getColumnIndexOrThrow("id")),
-                    name = it.getString(it.getColumnIndexOrThrow("name")),
-                    rollNo = it.getString(it.getColumnIndexOrThrow("rollNo")),
-                    email = it.getString(it.getColumnIndexOrThrow("email")),
+                    name = cleanName,
+                    rollNo = cleanRoll,
+                    email = cleanEmail,
                     phone = it.getString(it.getColumnIndexOrThrow("phone")),
                     dateOfBirth = it.getString(it.getColumnIndexOrThrow("dateOfBirth")),
                     bloodGroup = it.getString(it.getColumnIndexOrThrow("bloodGroup")),
@@ -33,7 +39,7 @@ class StudentDao(private val db: SQLiteDatabase) {
                     photoUrl = photoUrl
                 )
             } else {
-                StudentProfile("std_1", "Aditya Sharma", "VVIT/CS/2021/045", "aditya.sharma@vvit.edu", "+91 98765 43210", "14th August 2003", "O+ Positive", "Information Technology", "Semester 5 (Year 3)", "Section B", "2021", "Ramesh Sharma", "Father", "+91 98111 22233", 8.41, 87, null)
+                com.vvit.smartcollege.data.remote.SupabaseApiClient.AUTHENTIC_DEFAULT_STUDENTS[0]
             }
         }
     }
@@ -96,6 +102,9 @@ class StudentDao(private val db: SQLiteDatabase) {
                     )
                 )
             }
+        }
+        if (list.isNotEmpty() && list.all { it.totalClasses >= 30 && it.attendedClasses >= 25 }) {
+            return list.map { it.copy(attendedClasses = 0, totalClasses = 0, percentage = 0, isAlert = false) }
         }
         return list
     }
@@ -291,6 +300,7 @@ class StudentDao(private val db: SQLiteDatabase) {
         val list = mutableListOf<NoticeItem>()
         val cursor = db.query(DbConstants.TABLE_NOTICES, null, null, null, null, null, "rowid DESC")
         cursor.use {
+            val pubCol = it.getColumnIndex("publishedBy")
             while (it.moveToNext()) {
                 val rawDesc = it.getString(it.getColumnIndexOrThrow("description"))
                 var cleanDesc = rawDesc
@@ -307,6 +317,7 @@ class StudentDao(private val db: SQLiteDatabase) {
                     } catch (_: Exception) {}
                 }
 
+                val pubBy = if (pubCol >= 0 && !it.isNull(pubCol)) it.getString(pubCol) else ""
                 list.add(
                     NoticeItem(
                         id = it.getString(it.getColumnIndexOrThrow("id")),
@@ -315,7 +326,8 @@ class StudentDao(private val db: SQLiteDatabase) {
                         timeAgo = it.getString(it.getColumnIndexOrThrow("timeAgo")),
                         description = cleanDesc,
                         isUrgent = it.getInt(it.getColumnIndexOrThrow("isUrgent")) == 1,
-                        date = it.getString(it.getColumnIndexOrThrow("date"))
+                        date = it.getString(it.getColumnIndexOrThrow("date")),
+                        publishedBy = pubBy
                     )
                 )
             }
@@ -419,6 +431,7 @@ class StudentDao(private val db: SQLiteDatabase) {
                 put("description", notice.description)
                 put("isUrgent", if (notice.isUrgent) 1 else 0)
                 put("date", notice.date)
+                put("publishedBy", notice.publishedBy)
             }
             val count = db.update(DbConstants.TABLE_NOTICES, cv, "id = ?", arrayOf(notice.id))
             if (count == 0) {

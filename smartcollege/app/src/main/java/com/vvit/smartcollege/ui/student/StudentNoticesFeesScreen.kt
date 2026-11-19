@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -70,6 +72,26 @@ fun StudentNoticesFeesScreen(
                             text = item.displayDescription,
                             style = Typography.bodySmall.copy(color = TextSecondary)
                         )
+                        if (item.publishedBy.isNotBlank()) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Person,
+                                    contentDescription = null,
+                                    tint = PrimaryNavy,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "By: ${item.publishedBy}",
+                                    style = Typography.labelSmall.copy(
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = PrimaryNavy,
+                                        fontSize = 11.sp
+                                    )
+                                )
+                            }
+                        }
                     }
                 }
             }

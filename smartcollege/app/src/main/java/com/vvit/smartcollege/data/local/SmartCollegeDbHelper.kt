@@ -197,7 +197,8 @@ class SmartCollegeDbHelper(context: Context) : SQLiteOpenHelper(
                 timeAgo TEXT NOT NULL,
                 description TEXT NOT NULL,
                 isUrgent INTEGER NOT NULL DEFAULT 0,
-                date TEXT NOT NULL
+                date TEXT NOT NULL,
+                publishedBy TEXT DEFAULT ''
             )
         """.trimIndent())
 
@@ -427,6 +428,46 @@ class SmartCollegeDbHelper(context: Context) : SQLiteOpenHelper(
             db.delete(DbConstants.TABLE_ASSIGNMENTS, "id IN ('asg_1', 'asg_2', 'asg_3')", null)
             db.delete(DbConstants.TABLE_STUDY_MATERIALS, "id IN ('mat_1', 'mat_2', 'mat_3')", null)
             db.delete(DbConstants.TABLE_NOTICES, "id IN ('not_1', 'not_2', 'not_3')", null)
+        } catch (_: Exception) {}
+
+        try {
+            db.execSQL("ALTER TABLE ${DbConstants.TABLE_NOTICES} ADD COLUMN publishedBy TEXT DEFAULT ''")
+        } catch (_: Exception) {}
+
+        try {
+            val cvNotice = android.content.ContentValues().apply {
+                put("id", "not_teacher_cancel_1")
+                put("title", "class cancel")
+                put("category", "FACULTY COUNCIL")
+                put("timeAgo", "Just now")
+                put("description", "i am unable to take class so everyone goto library and study")
+                put("isUrgent", 0)
+                put("date", "Today")
+                put("publishedBy", "Rishav Kumar Singh")
+            }
+            db.insertWithOnConflict(DbConstants.TABLE_NOTICES, null, cvNotice, android.database.sqlite.SQLiteDatabase.CONFLICT_REPLACE)
+        } catch (_: Exception) {}
+
+        try {
+            // Reset attendance data to clean 0-0 state
+            val cvZero = android.content.ContentValues().apply {
+                put("attendedClasses", 0)
+                put("totalClasses", 0)
+                put("percentage", 0)
+                put("isAlert", 0)
+            }
+            db.update(DbConstants.TABLE_SUBJECT_ATTENDANCE, cvZero, null, null)
+
+            val cvProfileZero = android.content.ContentValues().apply {
+                put("attendancePercentage", 0)
+            }
+            db.update(DbConstants.TABLE_STUDENT_PROFILES, cvProfileZero, null, null)
+
+            val cvRosterZero = android.content.ContentValues().apply {
+                put("attendancePercentage", 0)
+            }
+            db.update(DbConstants.TABLE_ATTENDANCE_ROSTER, cvRosterZero, null, null)
+            db.delete(DbConstants.TABLE_AT_RISK_STUDENTS, null, null)
         } catch (_: Exception) {}
     }
 }

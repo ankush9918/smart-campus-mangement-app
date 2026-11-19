@@ -2,7 +2,7 @@ package com.vvit.smartcollege.data.local
 
 object DbConstants {
     const val DATABASE_NAME = "smartcollege.db"
-    const val DATABASE_VERSION = 2
+    const val DATABASE_VERSION = 3
 
     // Table names
     const val TABLE_USERS = "users"

@@ -34,7 +34,7 @@ class TeacherViewModel(
     val assignedSubjects: StateFlow<List<String>> = teacherRepository.assignedSubjects
 
     private val _selectedSubject = MutableStateFlow(
-        teacherRepository.assignedSubjects.value.firstOrNull() ?: "Digital Electronics (BOE-310)"
+        teacherRepository.assignedSubjects.value.firstOrNull() ?: "Discrete Structure & Theory of Logic (T) (BCS-303)"
     )
     val selectedSubject: StateFlow<String> = _selectedSubject.asStateFlow()
 
@@ -115,12 +115,10 @@ class TeacherViewModel(
 
     fun markAllPresent() {
         teacherRepository.markAllPresent(_selectedSubject.value)
-        _toastMessage.value = "Marked all students as Present for ${_selectedSubject.value}"
     }
 
     fun clearAttendance() {
         teacherRepository.resetAttendance()
-        _toastMessage.value = "Attendance desk cleared"
     }
 
     fun submitAttendance() {
@@ -144,7 +142,7 @@ class TeacherViewModel(
             if (result.isSuccess) {
                 val savedCount = result.getOrDefault(markedCount)
                 teacherRepository.resetAttendance()
-                _toastMessage.value = "Attendance for $subject ($className) submitted ($savedCount/$totalCount marked)! Synced to database."
+                _toastMessage.value = "Attendance for $subject ($className) submitted ($savedCount/$totalCount marked)! Updated in real-time."
             } else {
                 val err = result.exceptionOrNull()?.message ?: "Failed to save attendance"
                 _toastMessage.value = "Submission failed: $err"

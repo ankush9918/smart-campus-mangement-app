@@ -11,22 +11,23 @@ object MockDatabase {
 
     val studentProfile = MutableStateFlow(
         StudentProfile(
-            id = "std_1",
-            name = "Aditya Sharma",
-            rollNo = "VVIT/CS/2021/045",
-            email = "aditya.sharma@vvit.edu",
+            id = "std_1791009612955_3hhbwb",
+            name = "Ankush",
+            rollNo = "25084001312",
+            email = "ankush251312@recmainpuri.in",
             phone = "+91 98765 43210",
             dateOfBirth = "14th August 2003",
-            bloodGroup = "O+ Positive",
+            bloodGroup = "O+",
             department = "Information Technology",
-            currentSemester = "Semester 5 (Year 3)",
-            section = "Section B",
-            admissionYear = "2021",
-            guardianName = "Ramesh Sharma",
+            currentSemester = "Semester 3 (Year 2)",
+            section = "Section A",
+            admissionYear = "2023",
+            guardianName = "Guardian / Parent",
             guardianRelationship = "Father",
-            guardianContact = "+91 98111 22233",
-            cgpa = 8.41,
-            attendancePercentage = 87
+            guardianContact = "+91 98765 43210",
+            cgpa = 7.3,
+            attendancePercentage = 0,
+            photoUrl = "https://easrebumarwkloibtemf.supabase.co/storage/v1/object/public/student-photos/std_1791009612955_3hhbwb.jpg"
         )
     )
 
@@ -60,12 +61,12 @@ object MockDatabase {
 
     val studentAttendance = MutableStateFlow(
         listOf(
-            SubjectAttendance("att_1", "Data Structure", "BCS-301", 36, 42, 86),
-            SubjectAttendance("att_2", "Computer Organization & Architecture", "BCS-302", 35, 40, 88),
-            SubjectAttendance("att_3", "Discrete Structure & Theory of Logic", "BCS-303", 31, 38, 82),
-            SubjectAttendance("att_4", "Digital Electronics", "BOE-310", 31, 36, 86),
-            SubjectAttendance("att_5", "Technical Communication", "BAS-301", 27, 32, 84),
-            SubjectAttendance("att_6", "Python Programming", "BCC-302", 31, 35, 89)
+            SubjectAttendance("att_1", "Data Structure", "BCS-301", 0, 0, 0),
+            SubjectAttendance("att_2", "Computer Organization & Architecture", "BCS-302", 0, 0, 0),
+            SubjectAttendance("att_3", "Discrete Structure & Theory of Logic", "BCS-303", 0, 0, 0),
+            SubjectAttendance("att_4", "Digital Electronics", "BOE-310", 0, 0, 0),
+            SubjectAttendance("att_5", "Technical Communication", "BAS-301", 0, 0, 0),
+            SubjectAttendance("att_6", "Python Programming", "BCC-302", 0, 0, 0)
         )
     )
 
@@ -186,14 +187,27 @@ object MockDatabase {
         )
     )
 
-    val notices = MutableStateFlow<List<NoticeItem>>(emptyList())
+    val notices = MutableStateFlow<List<NoticeItem>>(
+        listOf(
+            NoticeItem(
+                id = "not_teacher_cancel_1",
+                title = "class cancel",
+                category = "FACULTY COUNCIL",
+                timeAgo = "Just now",
+                description = "i am unable to take class so everyone goto library and study",
+                isUrgent = false,
+                date = "Today",
+                publishedBy = "Rishav Kumar Singh"
+            )
+        )
+    )
 
     val leaveApplications = MutableStateFlow(
         listOf(
             StudentLeaveApplication(
                 id = "lv_1",
-                studentName = "Aditya Sharma",
-                rollNo = "VVIT/CS/2021/045",
+                studentName = "Ankush",
+                rollNo = "25084001312",
                 fromDate = "Oct 16, 2026",
                 toDate = "Oct 18, 2026",
                 durationDays = 3,
@@ -215,39 +229,7 @@ object MockDatabase {
         )
     )
 
-    val teacherSchedule = MutableStateFlow(
-        listOf(
-            // Monday
-            TeacherScheduleItem("tsch_1", "10:50 AM - 11:40 AM", "Data Structure (BCS-301)", "LH-1", "IT-3rd Sem", "General Lecture", "Mon"),
-            TeacherScheduleItem("tsch_2", "02:20 PM - 03:10 PM", "Computer Organization & Architecture (BCS-302)", "LH-1", "IT-3rd Sem", "General Lecture", "Mon"),
-            TeacherScheduleItem("tsch_3", "04:00 PM - 04:50 PM", "Discrete Structure & Theory of Logic (BCS-303)", "LH-1", "IT-3rd Sem", "Tutorial Session", "Mon"),
-
-            // Tuesday
-            TeacherScheduleItem("tsch_4", "10:00 AM - 10:50 AM", "Technical Communication (BAS-301)", "LH-1", "IT-3rd Sem", "General Lecture", "Tue"),
-            TeacherScheduleItem("tsch_5", "11:40 AM - 12:30 PM", "Computer Organization & Architecture (BCS-302)", "LH-1", "IT-3rd Sem", "General Lecture", "Tue"),
-            TeacherScheduleItem("tsch_6", "12:30 PM - 01:20 PM", "Data Structure (BCS-301)", "LH-1", "IT-3rd Sem", "General Lecture", "Tue"),
-            TeacherScheduleItem("tsch_7", "02:20 PM - 03:10 PM", "Digital Electronics (BOE-310)", "LH-1", "IT-3rd Sem", "General Lecture", "Tue"),
-
-            // Wednesday
-            TeacherScheduleItem("tsch_8", "10:00 AM - 10:50 AM", "Technical Communication (BAS-301)", "LH-1", "IT-3rd Sem", "General Lecture", "Wed"),
-            TeacherScheduleItem("tsch_9", "12:30 PM - 01:20 PM", "Data Structure (BCS-301)", "LH-1", "IT-3rd Sem", "General Lecture", "Wed"),
-            TeacherScheduleItem("tsch_10", "04:00 PM - 04:50 PM", "Computer Organization & Architecture (BCS-302)", "LH-1", "IT-3rd Sem", "General Lecture", "Wed"),
-
-            // Thursday
-            TeacherScheduleItem("tsch_11", "10:00 AM - 10:50 AM", "Technical Communication (BAS-301)", "LH-1", "IT-3rd Sem", "General Lecture", "Thu"),
-            TeacherScheduleItem("tsch_12", "10:50 AM - 11:40 AM", "Discrete Structure & Theory of Logic (BCS-303)", "LH-1", "IT-3rd Sem", "General Lecture", "Thu"),
-            TeacherScheduleItem("tsch_13", "04:00 PM - 04:50 PM", "Computer Organization & Architecture (BCS-302)", "LH-1", "IT-3rd Sem", "General Lecture", "Thu"),
-
-            // Friday
-            TeacherScheduleItem("tsch_14", "10:00 AM - 10:50 AM", "Data Structure (BCS-301)", "LH-1", "IT-3rd Sem", "General Lecture", "Fri"),
-            TeacherScheduleItem("tsch_15", "12:30 PM - 01:20 PM", "Digital Electronics (BOE-310)", "LH-1", "IT-3rd Sem", "Tutorial Session", "Fri"),
-            TeacherScheduleItem("tsch_16", "03:00 PM - 04:30 PM", "Python Programming & Project Review", "LH-1", "IT-3rd Sem", "Lab / Review", "Fri"),
-
-            // Saturday
-            TeacherScheduleItem("tsch_17", "10:00 AM - 11:30 AM", "Python Programming & Coding Workshop", "LH-1", "IT-3rd Sem", "Workshop", "Sat"),
-            TeacherScheduleItem("tsch_18", "12:00 PM - 01:00 PM", "Weekly Assessment & Mentorship", "LH-1", "IT-3rd Sem", "Assessment", "Sat")
-        )
-    )
+    val teacherSchedule = MutableStateFlow(TeacherRepository.MASTER_SCHEDULE)
 
     val teacherAttendanceRoster = MutableStateFlow(
         listOf(
@@ -261,7 +243,7 @@ object MockDatabase {
                 phone = "+91 98765 43210",
                 department = "Information Technology",
                 currentSemester = "Semester 3 (Year 2)",
-                attendancePercentage = 78,
+                attendancePercentage = 0,
                 cgpa = 7.3,
                 guardianName = "Guardian / Parent",
                 guardianContact = "+91 98765 43210",
@@ -277,7 +259,7 @@ object MockDatabase {
                 phone = "+91 98765 43211",
                 department = "Information Technology",
                 currentSemester = "Semester 3 (Year 2)",
-                attendancePercentage = 70,
+                attendancePercentage = 0,
                 cgpa = 6.9,
                 guardianName = "Guardian / Parent",
                 guardianContact = "+91 98765 43211",
@@ -293,7 +275,7 @@ object MockDatabase {
                 phone = "+91 98765 43212",
                 department = "Information Technology",
                 currentSemester = "Semester 3 (Year 2)",
-                attendancePercentage = 73,
+                attendancePercentage = 0,
                 cgpa = 8.0,
                 guardianName = "Guardian / Parent",
                 guardianContact = "+91 98765 43212",
@@ -309,7 +291,7 @@ object MockDatabase {
                 phone = "+91 98765 43213",
                 department = "Information Technology",
                 currentSemester = "Semester 3 (Year 2)",
-                attendancePercentage = 80,
+                attendancePercentage = 0,
                 cgpa = 8.0,
                 guardianName = "Guardian / Parent",
                 guardianContact = "+91 98765 43213",
@@ -318,12 +300,7 @@ object MockDatabase {
         )
     )
 
-    val atRiskStudents = MutableStateFlow(
-        listOf(
-            AtRiskStudent("risk_std_1791018184263_gq8k83", "ankur", "2508400130011", "Low Attendance (70%) & Performance Alert", 70),
-            AtRiskStudent("risk_std_1791010841660_9fx4k9", "ajay", "2508400130004", "Low Attendance (73%) & Performance Alert", 73)
-        )
-    )
+    val atRiskStudents = MutableStateFlow<List<AtRiskStudent>>(emptyList())
 
     val adminKPIs = MutableStateFlow(
         AdminKPIs(
@@ -342,7 +319,7 @@ object MockDatabase {
 
     val studentDirectory = MutableStateFlow(
         listOf(
-            StudentDirectoryEntry("sdir_1", "Aditya Sharma", "VVIT/CS/2021/045", "Computer Science", "Semester 5", "aditya.sharma@vvit.edu", "Ramesh Sharma (Father)", "+91 98111 22233", 8.4, 87, true),
+            StudentDirectoryEntry("sdir_1", "Ankush", "25084001312", "Information Technology", "Semester 3", "ankush251312@recmainpuri.in", "Guardian / Parent", "+91 98765 43210", 7.3, 78, true),
             StudentDirectoryEntry("sdir_2", "Meera Nair", "VVIT/EC/2021/012", "Electronics & Comm", "Semester 5", "meera.nair@vvit.edu", "K. Nair (Mother)", "+91 98222 33445", 7.6, 79, true),
             StudentDirectoryEntry("sdir_3", "Rohan Das", "VVIT/ME/2020/098", "Mechanical Eng", "Semester 7", "rohan.das@vvit.edu", "Sunil Das (Father)", "+91 98333 44556", 6.8, 54, false),
             StudentDirectoryEntry("sdir_4", "Pooja Hegde", "VVIT/CS/2021/089", "Computer Science", "Semester 5", "pooja.h@vvit.edu", "R. Hegde (Father)", "+91 98444 55667", 9.1, 94, true),

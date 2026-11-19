@@ -60,26 +60,49 @@ fun TeacherDashboardScreen(
         }
     }
 
-    // Filter today's classes matching official schedule
-    val todayClasses = remember(schedule, currentDay) {
-        val classesForDay = schedule.filter { 
-            it.dayOfWeek.equals(currentDay, ignoreCase = true) || it.dayOfWeek.startsWith(currentDay, ignoreCase = true)
-        }
-        if (classesForDay.isNotEmpty()) {
-            classesForDay
-        } else {
-            // If today has no classes (e.g. Sunday or empty), show Monday's schedule so teacher sees upcoming classes
-            schedule.filter { 
-                it.dayOfWeek.equals("Mon", ignoreCase = true) || it.dayOfWeek.startsWith("Mon", ignoreCase = true)
-            }
+    val currentDayFullName = remember {
+        val cal = java.util.Calendar.getInstance()
+        when (cal.get(java.util.Calendar.DAY_OF_WEEK)) {
+            java.util.Calendar.MONDAY -> "Monday"
+            java.util.Calendar.TUESDAY -> "Tuesday"
+            java.util.Calendar.WEDNESDAY -> "Wednesday"
+            java.util.Calendar.THURSDAY -> "Thursday"
+            java.util.Calendar.FRIDAY -> "Friday"
+            java.util.Calendar.SATURDAY -> "Saturday"
+            else -> "Sunday"
         }
     }
 
-    val isWeekendOrEmpty = remember(schedule, currentDay) {
-        schedule.none { 
+    // Filter today's classes matching official schedule
+    val todayClasses = remember(schedule, currentDay) {
+        schedule.filter { 
             it.dayOfWeek.equals(currentDay, ignoreCase = true) || it.dayOfWeek.startsWith(currentDay, ignoreCase = true)
         }
     }
+
+    // Find next upcoming day with classes if today has none
+    val nextTeachingDay = remember(schedule, currentDay) {
+        val daysOrder = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
+        val currentIndex = daysOrder.indexOf(currentDay)
+        if (currentIndex >= 0) {
+            val ordered = daysOrder.drop(currentIndex + 1) + daysOrder.take(currentIndex)
+            ordered.firstOrNull { d -> schedule.any { it.dayOfWeek.equals(d, ignoreCase = true) } }
+        } else {
+            "Mon"
+        }
+    }
+
+    val displayClasses = remember(todayClasses, schedule, nextTeachingDay) {
+        if (todayClasses.isNotEmpty()) {
+            todayClasses
+        } else if (nextTeachingDay != null) {
+            schedule.filter { it.dayOfWeek.equals(nextTeachingDay, ignoreCase = true) }
+        } else {
+            emptyList()
+        }
+    }
+
+    val isShowingUpcoming = todayClasses.isEmpty() && displayClasses.isNotEmpty()
 
     LaunchedEffect(Unit) {
         viewModel.refreshRoster()
@@ -180,8 +203,23 @@ fun TeacherDashboardScreen(
 
         // Today's Schedule matching design
         item {
+            val scheduleHeaderTitle = if (!isShowingUpcoming) {
+                "Today's Schedule ($currentDayFullName)"
+            } else {
+                val nextFull = when (nextTeachingDay) {
+                    "Mon" -> "Monday"
+                    "Tue" -> "Tuesday"
+                    "Wed" -> "Wednesday"
+                    "Thu" -> "Thursday"
+                    "Fri" -> "Friday"
+                    "Sat" -> "Saturday"
+                    else -> "Upcoming"
+                }
+                "Upcoming Schedule ($nextFull)"
+            }
+
             SectionHeader(
-                title = if (isWeekendOrEmpty) "Upcoming Schedule (Monday)" else "Today's Schedule",
+                title = scheduleHeaderTitle,
                 actionText = "View All",
                 onActionClick = { onNavigateToSection("schedule") }
             )
@@ -192,7 +230,7 @@ fun TeacherDashboardScreen(
                 colors = CardDefaults.cardColors(containerColor = CardWhite),
                 border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
             ) {
-                if (todayClasses.isEmpty()) {
+                if (displayClasses.isEmpty()) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -206,7 +244,7 @@ fun TeacherDashboardScreen(
                     }
                 } else {
                     Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        todayClasses.take(4).forEachIndexed { index, item ->
+                        displayClasses.take(4).forEachIndexed { index, item ->
                             if (index > 0) {
                                 HorizontalDivider(color = DividerColor)
                             }
@@ -294,52 +332,6 @@ fun TeacherDashboardScreen(
                         modifier = Modifier.weight(1f)
                     )
                 }
-            }
-        }
-
-        // Recent Alert Card (only shown when genuine alerts exist)
-        if (notices.isNotEmpty()) {
-            val alert = notices.first()
-            item {
-                SectionHeader(title = "Recent Alert")
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = AccentOrangeLight),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, AccentOrange.copy(alpha = 0.3f))
-                ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            StatusBadge(text = alert.category, style = if (alert.isUrgent) BadgeStyle.ERROR else BadgeStyle.PRIMARY)
-                            Text(
-                                text = alert.timeAgo,
-                                style = Typography.labelSmall.copy(color = TextSecondary, fontSize = 10.sp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = alert.title,
-                            style = Typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = PrimaryNavy,
-                                fontSize = 14.sp
-                            )
-                        )
-                        if (alert.displayDescription.isNotBlank()) {
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = alert.displayDescription,
-                                style = Typography.bodySmall.copy(color = TextSecondary, fontSize = 11.sp),
-                                maxLines = 2
-                            )
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }

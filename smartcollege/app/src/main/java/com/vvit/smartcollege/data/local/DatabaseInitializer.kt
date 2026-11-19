@@ -7,28 +7,30 @@ object DatabaseInitializer {
 
     fun seedDatabase(db: SQLiteDatabase) {
         // 1. Users
-        insertUser(db, "std_1", "Aditya Sharma", "student.vvit@college.edu", "STUDENT", "VVIT/CS/2021/045")
+        insertUser(db, "std_1791009612955_3hhbwb", "Ankush", "ankush251312@recmainpuri.in", "STUDENT", "25084001312")
+        insertUser(db, "std_1", "Ankush", "student.vvit@college.edu", "STUDENT", "VVIT/CS/2021/045")
         insertUser(db, "tch_1", "Dr. Rajesh Kumar", "teacher.vvit@college.edu", "TEACHER", "VVIT/CS/T-104")
         insertUser(db, "adm_1", "Dr. Rajesh Varma", "admin.vvit@college.edu", "ADMIN", "EMP-ADM-001")
 
         // 2. Student Profile
         val sp = ContentValues().apply {
-            put("id", "std_1")
-            put("name", "Aditya Sharma")
-            put("rollNo", "VVIT/CS/2021/045")
-            put("email", "aditya.sharma@vvit.edu")
+            put("id", "std_1791009612955_3hhbwb")
+            put("name", "Ankush")
+            put("rollNo", "25084001312")
+            put("email", "ankush251312@recmainpuri.in")
             put("phone", "+91 98765 43210")
             put("dateOfBirth", "14th August 2003")
-            put("bloodGroup", "O+ Positive")
-            put("department", "Computer Science & Eng.")
-            put("currentSemester", "Semester 5 (Year 3)")
-            put("section", "Section B")
-            put("admissionYear", "2021")
-            put("guardianName", "Ramesh Sharma")
+            put("bloodGroup", "O+")
+            put("department", "Information Technology")
+            put("currentSemester", "Semester 3 (Year 2)")
+            put("section", "Section A")
+            put("admissionYear", "2023")
+            put("guardianName", "Guardian / Parent")
             put("guardianRelationship", "Father")
-            put("guardianContact", "+91 98111 22233")
-            put("cgpa", 8.41)
-            put("attendancePercentage", 87)
+            put("guardianContact", "+91 98765 43210")
+            put("cgpa", 7.3)
+            put("attendancePercentage", 0)
+            put("photoUrl", "https://easrebumarwkloibtemf.supabase.co/storage/v1/object/public/student-photos/std_1791009612955_3hhbwb.jpg")
         }
         db.insert(DbConstants.TABLE_STUDENT_PROFILES, null, sp)
 
@@ -59,13 +61,13 @@ object DatabaseInitializer {
         }
         db.insert(DbConstants.TABLE_ADMIN_PROFILES, null, ap)
 
-        // 5. Subject Attendance (Official IT 3rd Sem Theory Subjects - No Labs)
-        insertAttendance(db, "att_1", "Data Structure", "BCS-301", 36, 42, 86, 0)
-        insertAttendance(db, "att_2", "Computer Organization & Architecture", "BCS-302", 35, 40, 88, 0)
-        insertAttendance(db, "att_3", "Discrete Structure & Theory of Logic", "BCS-303", 31, 38, 82, 0)
-        insertAttendance(db, "att_4", "Digital Electronics", "BOE-310", 31, 36, 86, 0)
-        insertAttendance(db, "att_5", "Technical Communication", "BAS-301", 27, 32, 84, 0)
-        insertAttendance(db, "att_6", "Python Programming", "BCC-302", 31, 35, 89, 0)
+        // 5. Subject Attendance (Official IT 3rd Sem Theory Subjects - No Labs) - Fresh Zero Start
+        insertAttendance(db, "att_1", "Data Structure", "BCS-301", 0, 0, 0, 0)
+        insertAttendance(db, "att_2", "Computer Organization & Architecture", "BCS-302", 0, 0, 0, 0)
+        insertAttendance(db, "att_3", "Discrete Structure & Theory of Logic", "BCS-303", 0, 0, 0, 0)
+        insertAttendance(db, "att_4", "Digital Electronics", "BOE-310", 0, 0, 0, 0)
+        insertAttendance(db, "att_5", "Technical Communication", "BAS-301", 0, 0, 0, 0)
+        insertAttendance(db, "att_6", "Python Programming", "BCC-302", 0, 0, 0, 0)
 
 
         // 6. Timetable (IT - 3rd Sem)
@@ -152,33 +154,76 @@ object DatabaseInitializer {
         insertFeeTransaction(db, "txn_2", "Annual Exam & Lab Fee", "TXN-VVIT98112", "02 Feb 2024", 15000L, "Success")
         insertFeeTransaction(db, "txn_3", "Semester 3 Tuition Fee", "TXN-VVIT87123", "10 Jul 2023", 40000L, "Success")
 
-        // 11. Notices - no dummy data; genuine notices populated dynamically from Supabase or Teacher broadcast
-        try {
-            db.delete(DbConstants.TABLE_NOTICES, "id IN ('not_1', 'not_2', 'not_3')", null)
-        } catch (_: Exception) {}
+        // 11. Notices - seeded with authentic teacher broadcast
+        insertNotice(
+            db,
+            "not_teacher_cancel_1",
+            "class cancel",
+            "FACULTY COUNCIL",
+            "Just now",
+            "i am unable to take class so everyone goto library and study",
+            0,
+            "Today",
+            "Rishav Kumar Singh"
+        )
 
         // 12. Leaves
-        insertLeave(db, "lv_1", "Aditya Sharma", "VVIT/CS/2021/045", "Oct 16, 2026", "Oct 18, 2026", 3, "Attending Sister's Wedding. Invitation attached.", "Pending", "12 Oct 2026")
+        insertLeave(db, "lv_1", "Ankush", "25084001312", "Oct 16, 2026", "Oct 18, 2026", 3, "Attending Sister's Wedding. Invitation attached.", "Pending", "12 Oct 2026")
         insertLeave(db, "lv_2", "Chaitanya Jha", "VVIT/CS/2021/022", "Oct 15, 2026", "Oct 15, 2026", 1, "Medical Appointment. Prescriptions uploaded.", "Pending", "13 Oct 2026")
 
-        // 13. Teacher Schedule
-        insertTeacherSchedule(db, "tsch_1", "09:00 AM", "Data Structures & Algorithms", "CS-Lab 1", "Semester 3 (Sec-A)", "General Lecture", "Mon")
-        insertTeacherSchedule(db, "tsch_2", "11:15 AM", "Object Oriented Programming", "Room 402", "Semester 3 (Sec-A)", "General Lecture", "Mon")
-        insertTeacherSchedule(db, "tsch_3", "02:00 PM", "Discrete Mathematics", "Room 105", "Semester 3 (Sec-A)", "General Lecture", "Mon")
-        insertTeacherSchedule(db, "tsch_4", "03:15 PM", "Project Review Seminar", "CS Seminar Hall", "Semester 7 (Sec-B)", "General Lecture", "Mon")
+        // 13. Teacher Schedule (Authentic 6-day schedule across all academic departments)
+        // Monday
+        insertTeacherSchedule(db, "tsch_1", "10:00 AM - 10:50 AM", "Python Programming (BCC-302)", "LH-1", "IT-3rd Sem", "General Lecture", "Mon")
+        insertTeacherSchedule(db, "tsch_2", "10:50 AM - 11:40 AM", "Data Structure (BCS-301)", "LH-1", "IT-3rd Sem", "General Lecture", "Mon")
+        insertTeacherSchedule(db, "tsch_3", "11:40 AM - 12:30 PM", "Digital Electronics (BOE-310)", "LH-1", "IT-3rd Sem", "General Lecture", "Mon")
+        insertTeacherSchedule(db, "tsch_4", "12:30 PM - 01:20 PM", "Python Programming (BCC-302)", "LH-1", "IT-3rd Sem", "General Lecture", "Mon")
+        insertTeacherSchedule(db, "tsch_5", "02:20 PM - 03:10 PM", "Computer Organization & Architecture (BCS-302)", "LH-1", "IT-3rd Sem", "General Lecture", "Mon")
+        insertTeacherSchedule(db, "tsch_6", "03:10 PM - 04:00 PM", "Digital Electronics (BOE-310)", "LH-1", "IT-3rd Sem", "General Lecture", "Mon")
+        insertTeacherSchedule(db, "tsch_7", "04:00 PM - 04:50 PM", "Discrete Structure & Theory of Logic (BCS-303)", "LH-1", "IT-3rd Sem", "Tutorial Session", "Mon")
 
-        // 14. Attendance Roster (Actual registered students from Supabase)
-        insertRoster(db, "std_1791009612955_3hhbwb", "25084001312", "ankush", "IT-Sec A", "UNMARKED", "ankush251312@recmainpuri.in", "+91 98765 43210", "Information Technology", "Semester 3 (Year 2)", 78, 7.3, "Guardian / Parent", "+91 98765 43210", "https://easrebumarwkloibtemf.supabase.co/storage/v1/object/public/student-photos/std_1791009612955_3hhbwb.jpg")
-        insertRoster(db, "std_1791018184263_gq8k83", "2508400130011", "ankur", "IT-Sec A", "UNMARKED", "ankur251311@recmainpuri.in", "+91 98765 43211", "Information Technology", "Semester 3 (Year 2)", 70, 6.9, "Guardian / Parent", "+91 98765 43211", "https://easrebumarwkloibtemf.supabase.co/storage/v1/object/public/student-photos/std_1791018184263_gq8k83.jpg")
-        insertRoster(db, "std_1791010841660_9fx4k9", "2508400130004", "ajay", "IT-Sec A", "UNMARKED", "ajay251304@recmainpuri.in", "+91 98765 43212", "Information Technology", "Semester 3 (Year 2)", 73, 8.0, "Guardian / Parent", "+91 98765 43212", "https://easrebumarwkloibtemf.supabase.co/storage/v1/object/public/student-photos/std_1791010841660_9fx4k9.jpg")
-        insertRoster(db, "std_1791280766460_uwebco", "2508400130015", "anuj", "IT-Sec A", "UNMARKED", "anuj251215@recmainpuri.in", "+91 98765 43213", "Information Technology", "Semester 3 (Year 2)", 80, 8.0, "Guardian / Parent", "+91 98765 43213", "https://easrebumarwkloibtemf.supabase.co/storage/v1/object/public/student-photos/std_1791280766460_uwebco.jpg")
+        // Tuesday
+        insertTeacherSchedule(db, "tsch_8", "10:00 AM - 10:50 AM", "Technical Communication (BAS-301)", "LH-1", "IT-3rd Sem", "General Lecture", "Tue")
+        insertTeacherSchedule(db, "tsch_9", "10:50 AM - 11:40 AM", "Discrete Structure & Theory of Logic (BCS-303)", "LH-1", "IT-3rd Sem", "General Lecture", "Tue")
+        insertTeacherSchedule(db, "tsch_10", "11:40 AM - 12:30 PM", "Computer Organization & Architecture (BCS-302)", "LH-1", "IT-3rd Sem", "General Lecture", "Tue")
+        insertTeacherSchedule(db, "tsch_11", "12:30 PM - 01:20 PM", "Data Structure (BCS-301)", "LH-1", "IT-3rd Sem", "General Lecture", "Tue")
+        insertTeacherSchedule(db, "tsch_12", "02:20 PM - 03:10 PM", "Digital Electronics (BOE-310)", "LH-1", "IT-3rd Sem", "General Lecture", "Tue")
+        insertTeacherSchedule(db, "tsch_13", "03:10 PM - 04:50 PM", "Computer Organization & Architecture (BCS-302)", "COA Lab", "IT-3rd Sem", "Practical Lab", "Tue")
 
-        // 15. At-risk students (Real registered students with attendance < 75%)
-        insertAtRisk(db, "risk_std_1791018184263_gq8k83", "ankur", "2508400130011", "Low Attendance (70%) & Academic Alert", 70, 0)
-        insertAtRisk(db, "risk_std_1791010841660_9fx4k9", "ajay", "2508400130004", "Low Attendance (73%) & Academic Alert", 73, 0)
+        // Wednesday
+        insertTeacherSchedule(db, "tsch_14", "10:00 AM - 10:50 AM", "Technical Communication (BAS-301)", "LH-1", "IT-3rd Sem", "General Lecture", "Wed")
+        insertTeacherSchedule(db, "tsch_15", "10:50 AM - 12:30 PM", "Python Programming (BCC-302)", "COA Lab", "IT-3rd Sem", "Practical Lab", "Wed")
+        insertTeacherSchedule(db, "tsch_16", "12:30 PM - 01:20 PM", "Data Structure (BCS-301)", "LH-1", "IT-3rd Sem", "General Lecture", "Wed")
+        insertTeacherSchedule(db, "tsch_17", "04:00 PM - 04:50 PM", "Computer Organization & Architecture (BCS-302)", "LH-1", "IT-3rd Sem", "General Lecture", "Wed")
+
+        // Thursday
+        insertTeacherSchedule(db, "tsch_18", "10:00 AM - 10:50 AM", "Technical Communication (BAS-301)", "LH-1", "IT-3rd Sem", "General Lecture", "Thu")
+        insertTeacherSchedule(db, "tsch_19", "10:50 AM - 11:40 AM", "Discrete Structure & Theory of Logic (BCS-303)", "LH-1", "IT-3rd Sem", "General Lecture", "Thu")
+        insertTeacherSchedule(db, "tsch_20", "11:40 AM - 01:20 PM", "Digital Electronics (BOE-310)", "Web Tech Lab", "IT-3rd Sem", "Workshop", "Thu")
+        insertTeacherSchedule(db, "tsch_21", "02:20 PM - 04:00 PM", "Data Structure (BCS-301)", "DS Lab", "IT-3rd Sem", "Practical Lab", "Thu")
+        insertTeacherSchedule(db, "tsch_22", "04:00 PM - 04:50 PM", "Computer Organization & Architecture (BCS-302)", "LH-1", "IT-3rd Sem", "General Lecture", "Thu")
+
+        // Friday
+        insertTeacherSchedule(db, "tsch_23", "10:00 AM - 10:50 AM", "Data Structure (BCS-301)", "LH-1", "IT-3rd Sem", "General Lecture", "Fri")
+        insertTeacherSchedule(db, "tsch_24", "10:50 AM - 12:30 PM", "Python Programming (BCC-302)", "Project Lab", "IT-3rd Sem", "Project Review", "Fri")
+        insertTeacherSchedule(db, "tsch_25", "12:30 PM - 01:20 PM", "Digital Electronics (BOE-310)", "LH-1", "IT-3rd Sem", "Tutorial Session", "Fri")
+        insertTeacherSchedule(db, "tsch_26", "02:20 PM - 04:00 PM", "Data Structure (BCS-301)", "DS Lab", "IT-3rd Sem", "Practical Lab", "Fri")
+
+        // Saturday
+        insertTeacherSchedule(db, "tsch_27", "10:00 AM - 11:30 AM", "Python Programming (BCC-302)", "LH-1", "IT-3rd Sem", "Workshop", "Sat")
+        insertTeacherSchedule(db, "tsch_28", "11:30 AM - 01:00 PM", "Discrete Structure & Theory of Logic (BCS-303)", "LH-1", "IT-3rd Sem", "Tutorial Session", "Sat")
+        insertTeacherSchedule(db, "tsch_29", "02:00 PM - 03:30 PM", "Digital Electronics (BOE-310)", "LH-1", "IT-3rd Sem", "Mentorship", "Sat")
+        insertTeacherSchedule(db, "tsch_30", "03:30 PM - 04:30 PM", "Technical Communication (BAS-301)", "LH-1", "IT-3rd Sem", "Seminar", "Sat")
+
+        // 14. Attendance Roster (Actual registered students from Supabase) - Fresh Zero Start
+        insertRoster(db, "std_1791009612955_3hhbwb", "25084001312", "ankush", "IT-Sec A", "UNMARKED", "ankush251312@recmainpuri.in", "+91 98765 43210", "Information Technology", "Semester 3 (Year 2)", 0, 7.3, "Guardian / Parent", "+91 98765 43210", "https://easrebumarwkloibtemf.supabase.co/storage/v1/object/public/student-photos/std_1791009612955_3hhbwb.jpg")
+        insertRoster(db, "std_1791018184263_gq8k83", "2508400130011", "ankur", "IT-Sec A", "UNMARKED", "ankur251311@recmainpuri.in", "+91 98765 43211", "Information Technology", "Semester 3 (Year 2)", 0, 6.9, "Guardian / Parent", "+91 98765 43211", "https://easrebumarwkloibtemf.supabase.co/storage/v1/object/public/student-photos/std_1791018184263_gq8k83.jpg")
+        insertRoster(db, "std_1791010841660_9fx4k9", "2508400130004", "ajay", "IT-Sec A", "UNMARKED", "ajay251304@recmainpuri.in", "+91 98765 43212", "Information Technology", "Semester 3 (Year 2)", 0, 8.0, "Guardian / Parent", "+91 98765 43212", "https://easrebumarwkloibtemf.supabase.co/storage/v1/object/public/student-photos/std_1791010841660_9fx4k9.jpg")
+        insertRoster(db, "std_1791280766460_uwebco", "2508400130015", "anuj", "IT-Sec A", "UNMARKED", "anuj251215@recmainpuri.in", "+91 98765 43213", "Information Technology", "Semester 3 (Year 2)", 0, 8.0, "Guardian / Parent", "+91 98765 43213", "https://easrebumarwkloibtemf.supabase.co/storage/v1/object/public/student-photos/std_1791280766460_uwebco.jpg")
+
+        // 15. At-risk students (Clean fresh session)
 
         // 16. Student Directory
-        insertStudentDirectory(db, "sdir_1", "Aditya Sharma", "VVIT/CS/2021/045", "Computer Science", "Semester 5", "aditya.sharma@vvit.edu", "Ramesh Sharma (Father)", "+91 98111 22233", 8.4, 87, 1)
+        insertStudentDirectory(db, "sdir_1", "Ankush", "25084001312", "Information Technology", "Semester 3", "ankush251312@recmainpuri.in", "Guardian / Parent", "+91 98765 43210", 7.3, 0, 1)
         insertStudentDirectory(db, "sdir_2", "Meera Nair", "VVIT/EC/2021/012", "Electronics & Comm", "Semester 5", "meera.nair@vvit.edu", "K. Nair (Mother)", "+91 98222 33445", 7.6, 79, 1)
         insertStudentDirectory(db, "sdir_3", "Rohan Das", "VVIT/ME/2020/098", "Mechanical Eng", "Semester 7", "rohan.das@vvit.edu", "Sunil Das (Father)", "+91 98333 44556", 6.8, 54, 0)
         insertStudentDirectory(db, "sdir_4", "Pooja Hegde", "VVIT/CS/2021/089", "Computer Science", "Semester 5", "pooja.h@vvit.edu", "R. Hegde (Father)", "+91 98444 55667", 9.1, 94, 1)
@@ -284,11 +329,11 @@ object DatabaseInitializer {
         db.insert(DbConstants.TABLE_FEE_TRANSACTIONS, null, cv)
     }
 
-    private fun insertNotice(db: SQLiteDatabase, id: String, title: String, cat: String, timeAgo: String, desc: String, isUrgent: Int, date: String) {
+    private fun insertNotice(db: SQLiteDatabase, id: String, title: String, cat: String, timeAgo: String, desc: String, isUrgent: Int, date: String, publishedBy: String = "") {
         val cv = ContentValues().apply {
-            put("id", id); put("title", title); put("category", cat); put("timeAgo", timeAgo); put("description", desc); put("isUrgent", isUrgent); put("date", date)
+            put("id", id); put("title", title); put("category", cat); put("timeAgo", timeAgo); put("description", desc); put("isUrgent", isUrgent); put("date", date); put("publishedBy", publishedBy)
         }
-        db.insert(DbConstants.TABLE_NOTICES, null, cv)
+        db.insertWithOnConflict(DbConstants.TABLE_NOTICES, null, cv, SQLiteDatabase.CONFLICT_REPLACE)
     }
 
     private fun insertLeave(db: SQLiteDatabase, id: String, name: String, roll: String, from: String, to: String, days: Int, reason: String, status: String, applied: String) {

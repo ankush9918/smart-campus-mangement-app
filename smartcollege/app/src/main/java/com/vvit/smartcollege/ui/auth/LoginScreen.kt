@@ -6,6 +6,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -18,8 +20,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -27,12 +33,14 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vvit.smartcollege.R
 import com.vvit.smartcollege.data.model.UserRole
 import com.vvit.smartcollege.ui.theme.ThemeState
 import com.vvit.smartcollege.ui.theme.Typography
+import kotlinx.coroutines.launch
 
 @Composable
 fun LoginScreen(
@@ -70,6 +78,53 @@ fun LoginScreen(
 
     var showPassword by remember { mutableStateOf(false) }
 
+    val scrollState = rememberScrollState()
+    val passwordBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val passwordSectionBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val coroutineScope = rememberCoroutineScope()
+    val density = LocalDensity.current
+    val imeBottom = WindowInsets.ime.getBottom(density)
+    var lastImeBottom by remember { mutableIntStateOf(0) }
+    var isKeyboardOpening by remember { mutableStateOf(false) }
+    var viewportHeightPx by remember { mutableIntStateOf(0) }
+    var isPasswordFocused by remember { mutableStateOf(false) }
+    var passwordFieldSize by remember { mutableStateOf(IntSize.Zero) }
+    var passwordSectionSize by remember { mutableStateOf(IntSize.Zero) }
+
+    val minViewportForFullSectionPx = with(density) { 300.dp.toPx() }
+    val cardBottomPaddingPx = with(density) { 22.dp.toPx() }
+    val passwordExtraBottomPx = with(density) { 24.dp.toPx() }
+
+    LaunchedEffect(imeBottom) {
+        isKeyboardOpening = imeBottom > lastImeBottom
+        lastImeBottom = imeBottom
+    }
+
+    LaunchedEffect(imeBottom, scrollState.maxValue, isKeyboardOpening) {
+        if (imeBottom > 0 && isKeyboardOpening) {
+            withFrameNanos { }
+            if (viewportHeightPx >= minViewportForFullSectionPx) {
+                passwordSectionBringIntoViewRequester.bringIntoView(
+                    Rect(
+                        left = 0f,
+                        top = 0f,
+                        right = passwordSectionSize.width.toFloat(),
+                        bottom = passwordSectionSize.height + cardBottomPaddingPx
+                    )
+                )
+            } else if (isPasswordFocused) {
+                passwordBringIntoViewRequester.bringIntoView(
+                    Rect(
+                        left = 0f,
+                        top = 0f,
+                        right = passwordFieldSize.width.toFloat(),
+                        bottom = passwordFieldSize.height + passwordExtraBottomPx
+                    )
+                )
+            }
+        }
+    }
+
     val roleTabs = listOf("Student", "Teacher")
     val selectedRoleIndex = when (selectedRole) {
         UserRole.STUDENT -> 0
@@ -81,7 +136,9 @@ fun LoginScreen(
         modifier = modifier
             .fillMaxSize()
             .background(screenBg)
-            .verticalScroll(rememberScrollState()),
+            .imePadding()
+            .onSizeChanged { viewportHeightPx = it.height }
+            .verticalScroll(scrollState),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -266,119 +323,158 @@ fun LoginScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Password Field
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        Text(
-                            text = "Password",
-                            style = Typography.labelMedium.copy(
-                                fontWeight = FontWeight.Medium,
-                                color = fieldLabelColor,
-                                fontSize = 13.sp
-                            )
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        OutlinedTextField(
-                            value = password,
-                            onValueChange = { viewModel.onPasswordChange(it) },
-                            modifier = Modifier.fillMaxWidth(),
-                            leadingIcon = {
-                                Icon(
-                                    imageVector = Icons.Default.Lock,
-                                    contentDescription = null,
-                                    tint = secondaryText,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            },
-                            trailingIcon = {
-                                IconButton(onClick = { showPassword = !showPassword }) {
-                                    Icon(
-                                        imageVector = if (showPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                        contentDescription = if (showPassword) "Hide password" else "Show password",
-                                        tint = secondaryText,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                            },
-                            visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
-                            singleLine = true,
-                            shape = RoundedCornerShape(10.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedContainerColor = inputBg,
-                                unfocusedContainerColor = inputBg,
-                                disabledContainerColor = inputBg,
-                                focusedBorderColor = inputFocusedBorder,
-                                unfocusedBorderColor = inputBorder,
-                                errorBorderColor = Color(0xFFD8524F),
-                                focusedTextColor = primaryText,
-                                unfocusedTextColor = primaryText,
-                                cursorColor = inputFocusedBorder
-                            ),
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Password,
-                                imeAction = ImeAction.Done
-                            ),
-                            keyboardActions = KeyboardActions(
-                                onDone = {
-                                    if (!isLoading) {
-                                        viewModel.login(onLoginSuccess)
-                                    }
-                                }
-                            )
-                        )
-                    }
-
-                    if (errorMessage != null) {
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Text(
-                            text = errorMessage ?: "",
-                            style = Typography.bodySmall.copy(color = Color(0xFFF87171), fontSize = 12.sp)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    // Sign In Button
-                    Button(
-                        onClick = { viewModel.login(onLoginSuccess) },
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(48.dp),
-                        enabled = !isLoading,
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = actionButtonBg,
-                            contentColor = Color.White,
-                            disabledContainerColor = if (isDark) Color(0xFF1E2D4A) else Color(0xFFCBD5E1),
-                            disabledContentColor = secondaryText
-                        )
+                            .bringIntoViewRequester(passwordSectionBringIntoViewRequester)
+                            .onSizeChanged { passwordSectionSize = it }
                     ) {
-                        if (isLoading) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(18.dp),
-                                    color = Color.White,
-                                    strokeWidth = 2.dp
+                        // Password Field
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .bringIntoViewRequester(passwordBringIntoViewRequester)
+                                .onSizeChanged { passwordFieldSize = it }
+                        ) {
+                            Text(
+                                text = "Password",
+                                style = Typography.labelMedium.copy(
+                                    fontWeight = FontWeight.Medium,
+                                    color = fieldLabelColor,
+                                    fontSize = 13.sp
                                 )
-                                Spacer(modifier = Modifier.width(10.dp))
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            OutlinedTextField(
+                                value = password,
+                                onValueChange = { viewModel.onPasswordChange(it) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .onFocusChanged { focusState ->
+                                        isPasswordFocused = focusState.isFocused
+                                        if (focusState.isFocused && imeBottom > 0) {
+                                            coroutineScope.launch {
+                                                if (viewportHeightPx >= minViewportForFullSectionPx) {
+                                                    passwordSectionBringIntoViewRequester.bringIntoView(
+                                                        Rect(
+                                                            left = 0f,
+                                                            top = 0f,
+                                                            right = passwordSectionSize.width.toFloat(),
+                                                            bottom = passwordSectionSize.height + cardBottomPaddingPx
+                                                        )
+                                                    )
+                                                } else {
+                                                    passwordBringIntoViewRequester.bringIntoView(
+                                                        Rect(
+                                                            left = 0f,
+                                                            top = 0f,
+                                                            right = passwordFieldSize.width.toFloat(),
+                                                            bottom = passwordFieldSize.height + passwordExtraBottomPx
+                                                        )
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Lock,
+                                        contentDescription = null,
+                                        tint = secondaryText,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                },
+                                trailingIcon = {
+                                    IconButton(onClick = { showPassword = !showPassword }) {
+                                        Icon(
+                                            imageVector = if (showPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                            contentDescription = if (showPassword) "Hide password" else "Show password",
+                                            tint = secondaryText,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                },
+                                visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
+                                singleLine = true,
+                                shape = RoundedCornerShape(10.dp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedContainerColor = inputBg,
+                                    unfocusedContainerColor = inputBg,
+                                    disabledContainerColor = inputBg,
+                                    focusedBorderColor = inputFocusedBorder,
+                                    unfocusedBorderColor = inputBorder,
+                                    errorBorderColor = Color(0xFFD8524F),
+                                    focusedTextColor = primaryText,
+                                    unfocusedTextColor = primaryText,
+                                    cursorColor = inputFocusedBorder
+                                ),
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Password,
+                                    imeAction = ImeAction.Done
+                                ),
+                                keyboardActions = KeyboardActions(
+                                    onDone = {
+                                        if (!isLoading) {
+                                            viewModel.login(onLoginSuccess)
+                                        }
+                                    }
+                                )
+                            )
+                        }
+
+                        if (errorMessage != null) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Text(
+                                text = errorMessage ?: "",
+                                style = Typography.bodySmall.copy(color = Color(0xFFF87171), fontSize = 12.sp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        // Sign In Button
+                        Button(
+                            onClick = { viewModel.login(onLoginSuccess) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp),
+                            enabled = !isLoading,
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = actionButtonBg,
+                                contentColor = Color.White,
+                                disabledContainerColor = if (isDark) Color(0xFF1E2D4A) else Color(0xFFCBD5E1),
+                                disabledContentColor = secondaryText
+                            )
+                        ) {
+                            if (isLoading) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(18.dp),
+                                        color = Color.White,
+                                        strokeWidth = 2.dp
+                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Text(
+                                        text = "Signing in...",
+                                        style = Typography.labelLarge.copy(
+                                            fontWeight = FontWeight.SemiBold,
+                                            fontSize = 14.sp
+                                        )
+                                    )
+                                }
+                            } else {
                                 Text(
-                                    text = "Signing in...",
+                                    text = "Sign In as ${roleTabs[selectedRoleIndex]}",
                                     style = Typography.labelLarge.copy(
                                         fontWeight = FontWeight.SemiBold,
                                         fontSize = 14.sp
                                     )
                                 )
                             }
-                        } else {
-                            Text(
-                                text = "Sign In as ${roleTabs[selectedRoleIndex]}",
-                                style = Typography.labelLarge.copy(
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 14.sp
-                                )
-                            )
                         }
                     }
                 }

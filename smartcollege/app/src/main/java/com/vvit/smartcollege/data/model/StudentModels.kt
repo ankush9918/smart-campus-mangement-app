@@ -144,3 +144,22 @@ data class StudentLeaveApplication(
     val status: String = "Pending", // Pending, Approved, Rejected
     val appliedDate: String
 )
+
+data class FacultyInfo(
+    val id: String,
+    val name: String,
+    val shortCode: String = "",
+    val employeeId: String = "",
+    val designation: String = "Assistant Professor",
+    val department: String = "Information Technology",
+    val email: String = "",
+    val phone: String = "",
+    val qualification: String = "",
+    val experienceYears: Int = 0,
+    val cabinRoom: String = "",
+    val linkedin: String = "",
+    val photoUrl: String? = null,
+    val subjects: List<String> = emptyList(),
+    val rooms: List<String> = emptyList(),
+    val teachingDays: List<String> = emptyList()
+)

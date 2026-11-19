@@ -127,6 +127,7 @@ class AuthRepository(
             }
 
             sessionManager?.saveSession(user)
+            sessionManager?.saveAccessToken(authResult.accessToken)
             _currentUser.value = user
             MockDatabase.currentUser.value = user
             return@withContext Result.success(user)
@@ -262,6 +263,7 @@ class AuthRepository(
     }
 
     fun logout() {
+        SupabaseApiClient.activeAccessToken = null
         sessionManager?.clearSession()
         _currentUser.value = null
         MockDatabase.currentUser.value = null

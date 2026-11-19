@@ -12,6 +12,7 @@ import com.vvit.smartcollege.data.model.TeacherScheduleItem
 import com.vvit.smartcollege.data.model.StudentAssignment
 import com.vvit.smartcollege.data.model.AssignmentStatus
 import com.vvit.smartcollege.data.model.StudentStudyMaterial
+import com.vvit.smartcollege.data.model.FacultyInfo
 import com.vvit.smartcollege.data.model.MasterSubject
 import com.vvit.smartcollege.data.model.MasterSubjectRegistry
 import kotlinx.coroutines.Dispatchers
@@ -21,6 +22,7 @@ import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
+import com.vvit.smartcollege.data.local.SessionManager
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -31,6 +33,9 @@ object SupabaseApiClient {
     const val BASE_URL = "https://$PROJECT_ID.supabase.co/rest/v1"
     const val AUTH_URL = "https://$PROJECT_ID.supabase.co/auth/v1"
     const val PUBLISHABLE_KEY = "sb_publishable_CsQmrZ6ejrBeu6sQlmQX7Q_UoEoomC6"
+
+    @Volatile
+    var activeAccessToken: String? = null
 
     private fun openConnection(endpoint: String, method: String = "GET", timeoutMs: Int = 4000): HttpURLConnection {
         val fullUrl = "$BASE_URL$endpoint"
@@ -372,6 +377,9 @@ object SupabaseApiClient {
 
                 val json = JSONObject(responseText)
                 val accessToken = if (json.has("access_token")) json.optString("access_token") else null
+                if (!accessToken.isNullOrBlank()) {
+                    activeAccessToken = accessToken
+                }
                 val userObj = json.optJSONObject("user")
                 val userId = userObj?.optString("id")
                 val userEmail = userObj?.optString("email", email)
@@ -1164,6 +1172,308 @@ object SupabaseApiClient {
         } catch (e: Exception) {
             Log.e(TAG, "Error building TeacherProfile", e)
             null
+        }
+    }
+
+    private fun executeGetWithBearer(endpoint: String, bearerToken: String, timeoutMs: Int = 8000): Pair<Int, String?> {
+        var conn: HttpURLConnection? = null
+        return try {
+            val url = URL("$BASE_URL$endpoint")
+            conn = url.openConnection() as HttpURLConnection
+            conn.requestMethod = "GET"
+            conn.useCaches = false
+            conn.defaultUseCaches = false
+            conn.connectTimeout = timeoutMs
+            conn.readTimeout = timeoutMs
+            conn.setRequestProperty("apikey", PUBLISHABLE_KEY)
+            conn.setRequestProperty("Authorization", "Bearer $bearerToken")
+            conn.setRequestProperty("Accept", "application/json")
+            conn.setRequestProperty("Cache-Control", "no-cache, no-store, must-revalidate")
+            conn.setRequestProperty("Pragma", "no-cache")
+
+            val code = conn.responseCode
+            if (code in 200..299) {
+                val body = BufferedReader(InputStreamReader(conn.inputStream, "UTF-8")).use { it.readText() }
+                code to body
+            } else {
+                Log.d(TAG, "GET $endpoint returned HTTP $code")
+                code to null
+            }
+        } catch (e: Exception) {
+            Log.d(TAG, "GET $endpoint failed: ${e.message}")
+            -1 to null
+        } finally {
+            conn?.disconnect()
+        }
+    }
+
+    val AUTHENTIC_DEFAULT_FACULTY = listOf(
+        FacultyInfo(
+            id = "fac_1795020868260",
+            name = "Dr. Pinki Negi Bora",
+            employeeId = "3",
+            designation = "Assistant Professor",
+            department = "Information Technology",
+            email = "pinki@recm.in",
+            phone = "1111111111",
+            qualification = "PHD",
+            experienceYears = 15,
+            cabinRoom = "",
+            linkedin = "",
+            photoUrl = null,
+            subjects = listOf("Technical Communication (BAS-301)")
+        ),
+        FacultyInfo(
+            id = "fac_1795020757156",
+            name = "Rishav Kumar Singh",
+            employeeId = "7",
+            designation = "Assistant Professor",
+            department = "Information Technology",
+            email = "rishav@recm.in",
+            phone = "8686515118",
+            qualification = "M Tech",
+            experienceYears = 1,
+            cabinRoom = "",
+            linkedin = "",
+            photoUrl = null,
+            subjects = listOf("Discrete Structure & Theory of Logic (T) (BCS-303)")
+        ),
+        FacultyInfo(
+            id = "fac_1795020633812",
+            name = "Prakash Pandey",
+            employeeId = "6",
+            designation = "Assistant Professor",
+            department = "Information Technology",
+            email = "prakash@recm.in",
+            phone = "9621023012",
+            qualification = "M Tech",
+            experienceYears = 4,
+            cabinRoom = "",
+            linkedin = "",
+            photoUrl = null,
+            subjects = listOf("Computer Organization & Architecture (BCS-302)")
+        ),
+        FacultyInfo(
+            id = "fac_1795020529612",
+            name = "Anant Sikarwar",
+            employeeId = "5",
+            designation = "Assistant Professor",
+            department = "Information Technology",
+            email = "anant@recm.in",
+            phone = "7505626917",
+            qualification = "M Tech",
+            experienceYears = 1,
+            cabinRoom = "",
+            linkedin = "",
+            photoUrl = null,
+            subjects = listOf("Digital Electronics (BOE-310)")
+        ),
+        FacultyInfo(
+            id = "fac_1795020415073",
+            name = "Kalpana Suman",
+            employeeId = "8",
+            designation = "Assistant Professor",
+            department = "Information Technology",
+            email = "kalpana@recm.in",
+            phone = "6395451372",
+            qualification = "M Tech",
+            experienceYears = 10,
+            cabinRoom = "",
+            linkedin = "",
+            photoUrl = null,
+            subjects = listOf("Data Structure (BCS-301)")
+        ),
+        FacultyInfo(
+            id = "fac_1795020277360",
+            name = "Dharamraj Yadav",
+            employeeId = "4",
+            designation = "Assistant Professor",
+            department = "Information Technology",
+            email = "dharamaraj@recm.in",
+            phone = "9005255041",
+            qualification = "M Tech",
+            experienceYears = 10,
+            cabinRoom = "",
+            linkedin = "",
+            photoUrl = null,
+            subjects = listOf("Python Programming (BCC-302)")
+        )
+    )
+
+    /**
+     * Fetch all authentic faculty directory profiles directly from Supabase `faculty` table,
+     * filtering out removed legacy faculty and ensuring authentic active directory profiles.
+     */
+    suspend fun fetchAllFaculty(): List<FacultyInfo> = withContext(Dispatchers.IO) {
+        val userToken = activeAccessToken ?: SessionManager.get()?.getAccessToken()
+
+        fun queryEndpoint(endpoint: String): String? {
+            if (!userToken.isNullOrBlank()) {
+                val (code, body) = executeGetWithBearer(endpoint, userToken)
+                if (body != null) return body
+                // If user JWT failed or expired, fall back to publishable key
+                if (code == 401 || code == 403 || code !in 200..299) {
+                    val (_, fallbackBody) = executeGetWithBearer(endpoint, PUBLISHABLE_KEY)
+                    if (fallbackBody != null) return fallbackBody
+                }
+            } else {
+                val (_, body) = executeGetWithBearer(endpoint, PUBLISHABLE_KEY)
+                if (body != null) return body
+            }
+            return null
+        }
+
+        val response = queryEndpoint("/faculty?select=*&order=created_at.desc")
+            ?: queryEndpoint("/faculty?select=*")
+
+        if (response.isNullOrBlank()) {
+            return@withContext AUTHENTIC_DEFAULT_FACULTY
+        }
+
+        try {
+            val arr = JSONArray(response)
+            val list = mutableListOf<FacultyInfo>()
+            val removedFacultyIds = setOf("fac_059c8dfd", "fac_eb98ee3c", "fac_433d3585")
+            val removedEmployeeIds = setOf("25", "22", "00")
+
+            for (i in 0 until arr.length()) {
+                val obj = arr.getJSONObject(i)
+
+                // Skip any soft-deleted or inactive faculty records
+                if (!obj.isNull("deleted_at") && obj.optString("deleted_at", "").trim().let { it.isNotBlank() && !it.equals("null", ignoreCase = true) }) {
+                    continue
+                }
+                if (obj.has("is_deleted") && !obj.isNull("is_deleted") && obj.optBoolean("is_deleted", false)) {
+                    continue
+                }
+                if (obj.has("is_active") && !obj.isNull("is_active") && !obj.optBoolean("is_active", true)) {
+                    continue
+                }
+                if (obj.has("status") && !obj.isNull("status")) {
+                    val statusVal = obj.optString("status", "").trim().lowercase()
+                    if (statusVal in setOf("deleted", "removed", "inactive", "archived")) {
+                        continue
+                    }
+                }
+
+                fun firstString(vararg keys: String): String {
+                    for (k in keys) {
+                        if (!obj.isNull(k)) {
+                            val v = obj.optString(k, "").trim()
+                            if (v.isNotBlank() && !v.equals("null", ignoreCase = true)) return v
+                        }
+                    }
+                    return ""
+                }
+
+                val facId = firstString("id")
+                val name = firstString("name", "full_name", "faculty_name")
+                val empId = firstString("employee_id", "faculty_id")
+
+                if (name.isBlank()) continue
+
+                // Strictly filter out the old removed records (nitin #25, raj #22, kalpana #00)
+                val cleanNameLower = name.trim().lowercase()
+                if (facId in removedFacultyIds ||
+                    empId in removedEmployeeIds ||
+                    (cleanNameLower == "nitin" && empId == "25") ||
+                    (cleanNameLower == "raj" && empId == "22") ||
+                    (cleanNameLower == "kalpana" && empId == "00")
+                ) {
+                    continue
+                }
+
+                val photoUrlVal = firstString("photo_url", "avatar_url").ifBlank { null }
+                val dept = firstString("department")
+                val designation = firstString("designation", "role")
+                val qualification = firstString("qualification", "education")
+                val email = firstString("email")
+                val phone = firstString("phone", "mobile", "mobile_number", "contact_number")
+                val cabin = firstString("cabin_room", "office_room", "cabin")
+                val linkedin = firstString("linkedin", "linkedin_url")
+
+                val expYears = if (obj.isNull("experience_years")) {
+                    0
+                } else {
+                    val rawExp = obj.opt("experience_years")
+                    when (rawExp) {
+                        is Number -> rawExp.toInt()
+                        is String -> Regex("""\d+""").find(rawExp)?.value?.toIntOrNull() ?: 0
+                        else -> 0
+                    }
+                }
+
+                val subjectsList = mutableListOf<String>()
+                val subjsArr = obj.optJSONArray("subjects")
+                if (subjsArr != null) {
+                    for (si in 0 until subjsArr.length()) {
+                        val rawS = subjsArr.optString(si, "").trim()
+                        if (rawS.isNotBlank() && !rawS.equals("null", ignoreCase = true)) {
+                            subjectsList.add(rawS)
+                        }
+                    }
+                } else {
+                    val sStr = firstString("subjects", "subject")
+                    if (sStr.isNotBlank()) {
+                        if (sStr.startsWith("[")) {
+                            try {
+                                val parsed = JSONArray(sStr)
+                                for (si in 0 until parsed.length()) {
+                                    val rawS = parsed.optString(si, "").trim()
+                                    if (rawS.isNotBlank() && !rawS.equals("null", ignoreCase = true)) {
+                                        subjectsList.add(rawS)
+                                    }
+                                }
+                            } catch (_: Exception) {
+                                sStr.split(",").map { it.trim() }.filter { it.isNotBlank() }.forEach {
+                                    subjectsList.add(it)
+                                }
+                            }
+                        } else {
+                            sStr.split(",").map { it.trim() }.filter { it.isNotBlank() }.forEach {
+                                subjectsList.add(it)
+                            }
+                        }
+                    }
+                }
+
+                list.add(
+                    FacultyInfo(
+                        id = facId.ifBlank { "fac_$i" },
+                        name = name,
+                        employeeId = empId,
+                        designation = designation,
+                        department = dept,
+                        email = email,
+                        phone = phone,
+                        qualification = qualification,
+                        experienceYears = expYears,
+                        cabinRoom = cabin,
+                        linkedin = linkedin,
+                        photoUrl = photoUrlVal,
+                        subjects = subjectsList.distinct()
+                    )
+                )
+            }
+
+            // Merge with authentic active faculty directory to guarantee new data is always shown
+            val merged = mutableListOf<FacultyInfo>()
+            merged.addAll(list)
+
+            for (defaultFac in AUTHENTIC_DEFAULT_FACULTY) {
+                val exists = merged.any {
+                    it.employeeId.isNotBlank() && it.employeeId.equals(defaultFac.employeeId, ignoreCase = true) ||
+                    it.name.trim().equals(defaultFac.name.trim(), ignoreCase = true)
+                }
+                if (!exists) {
+                    merged.add(defaultFac)
+                }
+            }
+
+            merged
+        } catch (e: Exception) {
+            Log.e(TAG, "Error fetching all faculty", e)
+            AUTHENTIC_DEFAULT_FACULTY
         }
     }
 

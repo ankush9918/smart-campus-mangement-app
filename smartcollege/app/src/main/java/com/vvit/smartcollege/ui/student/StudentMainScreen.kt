@@ -59,6 +59,10 @@ fun StudentMainScreen(
                 "attendance" -> StudentAttendanceScreen(viewModel = viewModel)
                 "timetable" -> StudentTimetableScreen(viewModel = viewModel)
                 "academics" -> StudentAcademicsScreen(viewModel = viewModel)
+                "faculty" -> StudentFacultyScreen(
+                    viewModel = viewModel,
+                    onBack = { currentTab = "home" }
+                )
                 "notices_fees" -> StudentNoticesFeesScreen(viewModel = viewModel)
                 "profile" -> StudentProfileScreen(
                     viewModel = viewModel,

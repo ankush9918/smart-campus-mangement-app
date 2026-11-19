@@ -26,6 +26,10 @@ fun StudentTimetableScreen(
     val selectedDay by viewModel.selectedTimetableDay.collectAsState()
     val timetable by viewModel.timetable.collectAsState()
 
+    LaunchedEffect(Unit) {
+        viewModel.selectTodayTimetableDay()
+    }
+
     val days = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
     val filteredEntries = timetable.filter { 
         it.dayOfWeek.equals(selectedDay, ignoreCase = true) || 

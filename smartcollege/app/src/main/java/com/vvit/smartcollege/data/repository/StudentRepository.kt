@@ -79,9 +79,30 @@ class StudentRepository(
     )
     val leaveApplications: StateFlow<List<StudentLeaveApplication>> = _leaveApplications.asStateFlow()
 
+    private val _facultyList = MutableStateFlow<List<FacultyInfo>>(SupabaseApiClient.AUTHENTIC_DEFAULT_FACULTY)
+    val facultyList: StateFlow<List<FacultyInfo>> = _facultyList.asStateFlow()
+
+    private val _isFacultyLoading = MutableStateFlow(false)
+    val isFacultyLoading: StateFlow<Boolean> = _isFacultyLoading.asStateFlow()
+
     init {
         CoroutineScope(Dispatchers.IO).launch {
+            refreshFaculty()
             refreshRemoteData()
+        }
+    }
+
+    suspend fun refreshFaculty() = withContext(Dispatchers.IO) {
+        _isFacultyLoading.value = true
+        try {
+            val remoteFaculty = SupabaseApiClient.fetchAllFaculty()
+            if (remoteFaculty.isNotEmpty()) {
+                _facultyList.value = remoteFaculty
+            }
+        } catch (_: Exception) {
+            // Keep existing state on transient error
+        } finally {
+            _isFacultyLoading.value = false
         }
     }
 
@@ -144,6 +165,9 @@ class StudentRepository(
             if (!remoteTimetable.isNullOrEmpty()) {
                 _timetable.value = remoteTimetable
             }
+
+            // 5b. Faculty Directory (live from Supabase faculty table only)
+            refreshFaculty()
 
             // 6. Circulars / Notices intended for STUDENTS (or ALL)
             val remoteNotices = SupabaseApiClient.fetchCirculars("STUDENTS")

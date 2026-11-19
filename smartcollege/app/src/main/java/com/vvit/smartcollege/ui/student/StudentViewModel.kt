@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.asStateFlow
 
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
+import java.util.Calendar
 
 class StudentViewModel(
     private val studentRepository: StudentRepository = StudentRepository()
@@ -24,8 +25,10 @@ class StudentViewModel(
     val feeTransactions: StateFlow<List<FeeTransaction>> = studentRepository.feeTransactions
     val notices: StateFlow<List<NoticeItem>> = studentRepository.notices
     val leaveApplications: StateFlow<List<StudentLeaveApplication>> = studentRepository.leaveApplications
+    val facultyList: StateFlow<List<FacultyInfo>> = studentRepository.facultyList
+    val isFacultyLoading: StateFlow<Boolean> = studentRepository.isFacultyLoading
 
-    private val _selectedTimetableDay = MutableStateFlow("Mon")
+    private val _selectedTimetableDay = MutableStateFlow(getCurrentTimetableDay())
     val selectedTimetableDay: StateFlow<String> = _selectedTimetableDay.asStateFlow()
 
     private val _selectedSemester = MutableStateFlow(4)
@@ -44,8 +47,30 @@ class StudentViewModel(
         }
     }
 
+    fun refreshFaculty() {
+        viewModelScope.launch {
+            studentRepository.refreshFaculty()
+        }
+    }
+
     fun selectTimetableDay(day: String) {
         _selectedTimetableDay.value = day
+    }
+
+    fun selectTodayTimetableDay() {
+        _selectedTimetableDay.value = getCurrentTimetableDay()
+    }
+
+    private fun getCurrentTimetableDay(): String {
+        return when (Calendar.getInstance().get(Calendar.DAY_OF_WEEK)) {
+            Calendar.MONDAY -> "Mon"
+            Calendar.TUESDAY -> "Tue"
+            Calendar.WEDNESDAY -> "Wed"
+            Calendar.THURSDAY -> "Thu"
+            Calendar.FRIDAY -> "Fri"
+            Calendar.SATURDAY -> "Sat"
+            else -> "Mon"
+        }
     }
 
     fun selectSemester(sem: Int) {

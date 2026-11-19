@@ -234,6 +234,13 @@ fun StudentDashboardScreen(
                         onClick = { onNavigateToSection("notices_fees") },
                         modifier = Modifier.weight(1f)
                     )
+                    QuickActionGridItem(
+                        title = "Faculty",
+                        icon = Icons.Default.Groups,
+                        iconBgColor = Color(0xFF4F46E5),
+                        onClick = { onNavigateToSection("faculty") },
+                        modifier = Modifier.weight(1f)
+                    )
                 }
             }
         }

@@ -33,6 +33,31 @@ admin-web/.env.*.local
 __pycache__/
 *.py[cod]
 *$py.class
+# api keys
+.env
+.env.*
+!.env.example
+
+# Backups & dumps
+backups/
+*.dump
+*.sql.bak
+
+# Keystores & release artifacts
+*.jks
+*.keystore
+smartcollege-key
+*.p12
+*.apk
+*.aab
+smartcollege/keystore/
+keystore/
+signing.properties
+
+
+# Supabase temporary files
+supabase/.temp/
+
 
 # Temporary & OS
 *.tmp

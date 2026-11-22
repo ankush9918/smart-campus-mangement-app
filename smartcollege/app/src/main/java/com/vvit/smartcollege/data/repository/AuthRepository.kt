@@ -167,7 +167,7 @@ class AuthRepository(
         val defaultUser = when (role) {
             UserRole.STUDENT -> User(id = "std_1", name = "Aditya Sharma", email = if (trimmedEmail.isNotBlank()) trimmedEmail else "student.vvit@college.edu", role = UserRole.STUDENT, identifier = "VVIT/CS/2021/045")
             UserRole.TEACHER -> User(id = "tch_1", name = "Dr. Rajesh Kumar", email = if (trimmedEmail.isNotBlank()) trimmedEmail else "teacher.vvit@college.edu", role = UserRole.TEACHER, identifier = "VVIT/CS/T-104")
-            UserRole.ADMIN -> User(id = "adm_1", name = "Dr. Rajesh Varma", email = if (trimmedEmail.isNotBlank()) trimmedEmail else "admin.vvit@college.edu", role = UserRole.ADMIN, identifier = "EMP-ADM-001")
+            UserRole.ADMIN -> User(id = "adm_1", name = "Dr. Prakash Singh", email = if (trimmedEmail.isNotBlank()) trimmedEmail else "admin.vvit@college.edu", role = UserRole.ADMIN, identifier = "EMP-ADM-001")
         }
         sessionManager?.saveSession(defaultUser)
         _currentUser.value = defaultUser

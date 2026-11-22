@@ -51,9 +51,9 @@ object MockDatabase {
     val adminProfile = MutableStateFlow(
         AdminProfile(
             id = "adm_1",
-            name = "Dr. Rajesh Varma",
-            title = "System Administrator",
-            email = "admin.varma@vvit.edu",
+            name = "Dr. Prakash Singh",
+            title = "HOD IT",
+            email = "admin.prakash@vvit.edu",
             phone = "+91 98999 11223"
         )
     )

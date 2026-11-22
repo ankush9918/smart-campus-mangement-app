@@ -1,4 +1,5 @@
 import React from 'react';
+import collegeLogo from '../assets/college-logo.png';
 import { 
   LayoutDashboard, 
   GraduationCap, 
@@ -10,10 +11,12 @@ import {
   ChevronRight,
   ShieldAlert,
   Building2,
-  X
+  X,
+  Moon,
+  Sun
 } from 'lucide-react';
 
-export function Sidebar({ currentTab, onSelectTab, isMobileOpen, onCloseMobile, supabaseStatus, onOpenSupabaseModal }) {
+export function Sidebar({ currentTab, onSelectTab, isMobileOpen, onCloseMobile, supabaseStatus, onOpenSupabaseModal, isDarkMode, onToggleDarkMode }) {
   const navItems = [
     {
       id: 'dashboard',
@@ -71,9 +74,12 @@ export function Sidebar({ currentTab, onSelectTab, isMobileOpen, onCloseMobile, 
         {/* Brand Header */}
         <div className="h-16 px-6 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-700 via-brand-600 to-brand-500 text-white flex items-center justify-center font-bold text-lg shadow-md shadow-brand-500/20">
-              L
-            </div>
+            <img 
+              src={collegeLogo} 
+              alt="L.D.A.H REC Mainpuri Logo" 
+              className="w-10 h-10 object-contain drop-shadow-sm shrink-0" 
+              onError={(e) => { e.currentTarget.src = '/college-logo.png'; }}
+            />
             <div>
               <div className="font-extrabold text-sm text-slate-900 tracking-tight leading-tight">L.D.A.H REC Mainpuri</div>
               <div className="text-[11px] font-semibold text-brand-600 uppercase tracking-wider">Admin Portal</div>
@@ -173,13 +179,22 @@ export function Sidebar({ currentTab, onSelectTab, isMobileOpen, onCloseMobile, 
 
         {/* Admin Executive Profile footer */}
         <div className="px-5 py-4 border-t border-slate-100 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-xs shadow-sm">
-            AD
+          <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-slate-800 to-slate-900 text-white flex items-center justify-center font-bold text-xs shadow-sm">
+            PS
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-xs font-bold text-slate-800 truncate">Dr. Rajesh Varma</div>
-            <div className="text-[11px] text-slate-500 truncate">Chief Administrator</div>
+            <div className="text-xs font-bold text-slate-800 truncate">Dr. Prakash Singh</div>
+            <div className="text-[11px] text-slate-500 truncate font-medium">HOD IT</div>
           </div>
+          {onToggleDarkMode && (
+            <button
+              onClick={onToggleDarkMode}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+              title={isDarkMode ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
+            >
+              {isDarkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
+            </button>
+          )}
         </div>
       </aside>
     </>

@@ -24,7 +24,28 @@ export function App() {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
 
-  // Authenticate Admin session on mount
+  // Theme state (Dark / Light mode)
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    const saved = localStorage.getItem('theme');
+    if (saved) return saved === 'dark';
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
+
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [isDarkMode]);
+
+  const toggleDarkMode = () => {
+    setIsDarkMode(prev => !prev);
+  };
+
+  // Authenticate Admin session on mount directly from Supabase Auth
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       const user = session?.user;
@@ -321,6 +342,8 @@ export function App() {
         onCloseMobile={() => setIsMobileOpen(false)}
         supabaseStatus={supabaseStatus}
         onOpenSupabaseModal={() => setIsSupabaseModalOpen(true)}
+        isDarkMode={isDarkMode}
+        onToggleDarkMode={toggleDarkMode}
       />
 
       {/* Main Content Area */}
@@ -334,6 +357,8 @@ export function App() {
           onRefreshData={() => loadAllData(true)}
           isRefreshing={isRefreshing}
           onLogout={handleLogout}
+          isDarkMode={isDarkMode}
+          onToggleDarkMode={toggleDarkMode}
         />
 
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">

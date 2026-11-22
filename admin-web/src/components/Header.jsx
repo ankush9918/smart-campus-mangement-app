@@ -1,8 +1,8 @@
 import React from 'react';
-import { Menu, Database, Bell, RefreshCw, Sparkles, LogOut } from 'lucide-react';
+import { Menu, Database, Bell, RefreshCw, Sparkles, LogOut, Moon, Sun } from 'lucide-react';
 import { SUPABASE_PROJECT_ID } from '../lib/supabase';
 
-export function Header({ title, subtitle, onOpenMobile, supabaseStatus, onOpenSupabaseModal, onRefreshData, isRefreshing, onLogout }) {
+export function Header({ title, subtitle, onOpenMobile, supabaseStatus, onOpenSupabaseModal, onRefreshData, isRefreshing, onLogout, isDarkMode, onToggleDarkMode }) {
   const isReady = supabaseStatus?.connected && supabaseStatus?.tablesExist;
 
   return (
@@ -62,17 +62,33 @@ export function Header({ title, subtitle, onOpenMobile, supabaseStatus, onOpenSu
           </button>
         </div>
 
+        {/* Dark Theme Toggle Button */}
+        {onToggleDarkMode && (
+          <button
+            onClick={onToggleDarkMode}
+            className="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+            title={isDarkMode ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
+            aria-label="Toggle Dark/Light Mode"
+          >
+            {isDarkMode ? (
+              <Sun className="w-4 h-4 text-amber-400" />
+            ) : (
+              <Moon className="w-4 h-4" />
+            )}
+          </button>
+        )}
+
         {/* Divider */}
         <div className="h-6 w-px bg-slate-200 hidden sm:block"></div>
 
         {/* Admin profile chip */}
         <div className="flex items-center gap-2.5 pl-1">
           <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-brand-600 to-indigo-600 text-white flex items-center justify-center font-bold text-xs shadow-sm">
-            RV
+            PS
           </div>
           <div className="hidden md:block text-left">
-            <div className="text-xs font-bold text-slate-800 leading-tight">Dr. Rajesh Varma</div>
-            <div className="text-[10px] text-slate-500 font-medium leading-tight">Administrator</div>
+            <div className="text-xs font-bold text-slate-800 leading-tight">Dr. Prakash Singh</div>
+            <div className="text-[10px] text-slate-500 font-medium leading-tight">HOD IT</div>
           </div>
         </div>
 

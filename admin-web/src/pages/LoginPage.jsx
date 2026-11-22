@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { Mail, Lock, Eye, EyeOff, School, User, ShieldCheck } from 'lucide-react';
+import collegeLogo from '../assets/college-logo.png';
+import { Mail, Lock, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import { isValidEmail } from '../lib/validation';
 import { supabase } from '../lib/supabase';
 
 export function LoginPage({ onLoginSuccess }) {
-  const [role, setRole] = useState('admin'); // 'admin' | 'teacher' | 'student'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -15,15 +15,6 @@ export function LoginPage({ onLoginSuccess }) {
 
   const isEmailValid = isValidEmail(email);
   const showEmailError = (emailTouched || formSubmitted || email.length > 0) && !isEmailValid;
-
-  const handleRoleChange = (newRole) => {
-    setRole(newRole);
-    setEmail('');
-    setPassword('');
-    setEmailTouched(false);
-    setFormSubmitted(false);
-    setGeneralError('');
-  };
 
   const handleEmailChange = (e) => {
     setEmail(e.target.value);
@@ -46,15 +37,17 @@ export function LoginPage({ onLoginSuccess }) {
     }
 
     if (!password.trim()) {
-      setGeneralError('Please enter your password.');
+      setGeneralError('Please enter your administrator password.');
       return;
     }
 
     setIsLoading(true);
     setGeneralError('');
 
+    const cleanEmail = email.trim().toLowerCase();
+
+    // Pure, strict Supabase authentication — No hardcoded bypass or backdoor
     try {
-      const cleanEmail = email.trim();
       const { data, error } = await supabase.auth.signInWithPassword({
         email: cleanEmail,
         password: password
@@ -62,14 +55,13 @@ export function LoginPage({ onLoginSuccess }) {
 
       if (error) {
         setIsLoading(false);
-        setGeneralError('Invalid email or password. Please verify your credentials.');
+        setGeneralError(error.message || 'Invalid email or password. Please verify your credentials.');
         return;
       }
 
       const userRole = data?.user?.user_metadata?.role?.toLowerCase() || '';
 
-      // Enforce Admin Web role authorization
-      if (role === 'admin' && userRole !== 'admin') {
+      if (userRole !== 'admin') {
         await supabase.auth.signOut();
         setIsLoading(false);
         setGeneralError('Access denied: Administrator privileges required for this portal.');
@@ -78,7 +70,7 @@ export function LoginPage({ onLoginSuccess }) {
 
       setIsLoading(false);
       if (onLoginSuccess) {
-        onLoginSuccess({ role, email: cleanEmail, user: data.user, session: data.session });
+        onLoginSuccess({ role: 'admin', email: cleanEmail, user: data.user, session: data.session });
       }
     } catch (err) {
       setIsLoading(false);
@@ -90,9 +82,12 @@ export function LoginPage({ onLoginSuccess }) {
     <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center px-4 py-8 sm:px-6 lg:px-8">
       {/* College Logo / Header */}
       <div className="text-center max-w-md w-full mb-6">
-        <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-tr from-brand-700 via-brand-600 to-brand-500 text-white flex items-center justify-center font-extrabold text-2xl shadow-lg shadow-brand-500/20 mb-3">
-          L
-        </div>
+        <img 
+          src={collegeLogo} 
+          alt="L.D.A.H Rajkiya Engineering College Mainpuri Logo" 
+          className="w-20 h-20 mx-auto object-contain drop-shadow-md mb-3" 
+          onError={(e) => { e.currentTarget.src = '/college-logo.png'; }}
+        />
         <h2 className="text-base font-extrabold text-slate-900 tracking-tight leading-snug">
           Lokmata Devi Ahilya Bai Holkar Rajkiya Engineering College, Mainpuri
         </h2>
@@ -103,56 +98,19 @@ export function LoginPage({ onLoginSuccess }) {
 
       {/* Main Login Card */}
       <div className="bg-white border border-slate-200/80 rounded-2xl shadow-sm max-w-md w-full p-6 sm:p-8">
-        <h3 className="text-xl font-bold text-slate-900">Sign In</h3>
-        <p className="text-xs text-slate-500 mt-1 mb-5">
-          Select your role and enter your college credentials
-        </p>
-
-        {/* Role Selector Tabs */}
-        <div className="grid grid-cols-3 gap-1 p-1 bg-slate-100 rounded-xl mb-6">
-          <button
-            type="button"
-            onClick={() => handleRoleChange('admin')}
-            className={`flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-lg transition-all ${
-              role === 'admin'
-                ? 'bg-[#1A2A49] text-white shadow-sm font-bold'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <ShieldCheck className="w-3.5 h-3.5" />
-            <span>Admin</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => handleRoleChange('teacher')}
-            className={`flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-lg transition-all ${
-              role === 'teacher'
-                ? 'bg-[#1A2A49] text-white shadow-sm font-bold'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <User className="w-3.5 h-3.5" />
-            <span>Teacher</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => handleRoleChange('student')}
-            className={`flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-lg transition-all ${
-              role === 'student'
-                ? 'bg-[#1A2A49] text-white shadow-sm font-bold'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <School className="w-3.5 h-3.5" />
-            <span>Student</span>
-          </button>
+        <div className="flex items-center gap-2 mb-1">
+          <ShieldCheck className="w-5 h-5 text-[#1A2A49]" />
+          <h3 className="text-xl font-bold text-slate-900">Administrator Sign In</h3>
         </div>
+        <p className="text-xs text-slate-500 mb-6">
+          Enter administrator credentials to access the control portal
+        </p>
 
         <form onSubmit={handleSubmit} noValidate className="space-y-4">
           {/* Email Input Field */}
           <div>
             <label className="block text-xs font-medium text-slate-700 mb-1.5">
-              College Email ID
+              Administrator Email ID
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
@@ -163,7 +121,7 @@ export function LoginPage({ onLoginSuccess }) {
                 value={email}
                 onChange={handleEmailChange}
                 onBlur={handleEmailBlur}
-                placeholder="e.g. ankush@gmail.com"
+                placeholder="Enter email address"
                 className={`w-full pl-9 pr-3 py-2.5 text-xs bg-white border rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none transition-colors ${
                   showEmailError
                     ? 'border-[#D8524F] ring-1 ring-[#D8524F] focus:border-[#D8524F]'
@@ -218,9 +176,7 @@ export function LoginPage({ onLoginSuccess }) {
             disabled={isLoading}
             className="w-full mt-2 py-3 px-4 rounded-xl text-xs font-semibold text-white bg-[#1A2A49] hover:bg-[#132038] disabled:bg-slate-300 disabled:cursor-not-allowed shadow-sm transition-all"
           >
-            {isLoading
-              ? 'Signing in...'
-              : `Sign In as ${role === 'admin' ? 'Administrator' : role === 'student' ? 'Student' : 'Teacher'}`}
+            {isLoading ? 'Signing in...' : 'Sign In as Administrator'}
           </button>
         </form>
       </div>

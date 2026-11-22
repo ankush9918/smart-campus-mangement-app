@@ -9,7 +9,7 @@ object DatabaseInitializer {
         // 1. Users
         insertUser(db, "std_1", "Aditya Sharma", "student.vvit@college.edu", "STUDENT", "VVIT/CS/2021/045")
         insertUser(db, "tch_1", "Dr. Rajesh Kumar", "teacher.vvit@college.edu", "TEACHER", "VVIT/CS/T-104")
-        insertUser(db, "adm_1", "Dr. Rajesh Varma", "admin.vvit@college.edu", "ADMIN", "EMP-ADM-001")
+        insertUser(db, "adm_1", "Dr. Prakash Singh", "admin.vvit@college.edu", "ADMIN", "EMP-ADM-001")
 
         // 2. Student Profile
         val sp = ContentValues().apply {
@@ -52,9 +52,9 @@ object DatabaseInitializer {
         // 4. Admin Profile
         val ap = ContentValues().apply {
             put("id", "adm_1")
-            put("name", "Dr. Rajesh Varma")
-            put("title", "System Administrator")
-            put("email", "admin.varma@vvit.edu")
+            put("name", "Dr. Prakash Singh")
+            put("title", "HOD IT")
+            put("email", "admin.prakash@vvit.edu")
             put("phone", "+91 98999 11223")
         }
         db.insert(DbConstants.TABLE_ADMIN_PROFILES, null, ap)
